@@ -292,6 +292,23 @@ function Index() {
         </div>
       </section>
 
+      <section className="archive-teaser" id="archive">
+        <p className="eyebrow">Memory archive</p>
+        <h2>Receipts from moments that happened.</h2>
+        <p>
+          Browse memories from our past events — from printed keepsakes to digital photos, GIFs, and
+          singles.
+        </p>
+        <div className="event-grid">
+          {events.slice(0, 3).map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+        <Link to="/memories" className="teaser-link">
+          Open the memory archive <ArrowUpRight aria-hidden="true" />
+        </Link>
+      </section>
+
       <section className="offer-section">
         <div className="offer-copy">
           <p className="eyebrow">Your next memory</p>
