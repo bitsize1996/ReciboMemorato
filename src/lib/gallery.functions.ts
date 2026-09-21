@@ -88,7 +88,7 @@ export const listEventMedia = createServerFn({ method: "GET" })
 
     const { data: row } = await publicSupabase()
       .from("events")
-      .select(`id, ${column}`)
+      .select("id, print_folder_id, digitals_folder_id, gif_folder_id, singles_folder_id")
       .eq("published", true)
       .eq("slug", data.slug)
       .maybeSingle();
