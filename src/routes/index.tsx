@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -14,6 +15,13 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EventCard } from "./memories.index";
+import { listPublishedEvents } from "@/lib/gallery.functions";
+
+const eventsQuery = queryOptions({
+  queryKey: ["events"],
+  queryFn: () => listPublishedEvents(),
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,6 +41,7 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(eventsQuery),
   component: Index,
 });
 
@@ -139,12 +148,15 @@ function MemoryVisual({ type, label }: { type: string; label: string }) {
 }
 
 function Index() {
+  const { data: events } = useSuspenseQuery(eventsQuery);
+
   return (
     <main id="top" className="overflow-hidden bg-background text-foreground">
       <header className="site-header">
         <BrandMark />
         <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
           <a href="#services">Services</a>
+          <Link to="/memories">Memory archive</Link>
           <a href="#story">Our story</a>
           <a href="#faqs">FAQs</a>
         </nav>
@@ -280,6 +292,23 @@ function Index() {
             </figure>
           ))}
         </div>
+      </section>
+
+      <section className="archive-teaser" id="archive">
+        <p className="eyebrow">Memory archive</p>
+        <h2>Receipts from moments that happened.</h2>
+        <p>
+          Browse memories from our past events — from printed keepsakes to digital photos, GIFs, and
+          singles.
+        </p>
+        <div className="event-grid">
+          {events.slice(0, 3).map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+        <Link to="/memories" className="teaser-link">
+          Open the memory archive <ArrowUpRight aria-hidden="true" />
+        </Link>
       </section>
 
       <section className="offer-section">
