@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
+import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
 import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/memory-media'
 
 const IndexRoute = IndexRouteImport.update({
@@ -30,6 +32,16 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const MemoriesIndexRoute = MemoriesIndexRouteImport.update({
+  id: '/memories/',
+  path: '/memories/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoriesSlugRoute = MemoriesSlugRouteImport.update({
+  id: '/memories/$slug',
+  path: '/memories/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMemoryMediaRoute = ApiPublicMemoryMediaRouteImport.update({
   id: '/api/public/memory-media',
   path: '/api/public/memory-media',
@@ -40,12 +52,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/memories/$slug': typeof MemoriesSlugRoute
+  '/memories/': typeof MemoriesIndexRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/memories/$slug': typeof MemoriesSlugRoute
+  '/memories': typeof MemoriesIndexRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
 }
 export interface FileRoutesById {
@@ -53,6 +69,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/memories/$slug': typeof MemoriesSlugRoute
+  '/memories/': typeof MemoriesIndexRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
 }
 export interface FileRouteTypes {
@@ -61,18 +79,24 @@ export interface FileRouteTypes {
     | '/'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/memories/$slug'
+    | '/memories/'
     | '/api/public/memory-media'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/memories/$slug'
+    | '/memories'
     | '/api/public/memory-media'
   id:
     | '__root__'
     | '/'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/memories/$slug'
+    | '/memories/'
     | '/api/public/memory-media'
   fileRoutesById: FileRoutesById
 }
@@ -80,6 +104,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   McpRoute: typeof McpRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  MemoriesSlugRoute: typeof MemoriesSlugRoute
+  MemoriesIndexRoute: typeof MemoriesIndexRoute
   ApiPublicMemoryMediaRoute: typeof ApiPublicMemoryMediaRoute
 }
 
@@ -106,6 +132,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/memories/': {
+      id: '/memories/'
+      path: '/memories'
+      fullPath: '/memories/'
+      preLoaderRoute: typeof MemoriesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/memories/$slug': {
+      id: '/memories/$slug'
+      path: '/memories/$slug'
+      fullPath: '/memories/$slug'
+      preLoaderRoute: typeof MemoriesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/memory-media': {
       id: '/api/public/memory-media'
       path: '/api/public/memory-media'
@@ -121,6 +161,8 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  MemoriesSlugRoute: MemoriesSlugRoute,
+  MemoriesIndexRoute: MemoriesIndexRoute,
   ApiPublicMemoryMediaRoute: ApiPublicMemoryMediaRoute,
 }
 export const routeTree = rootRouteImport
