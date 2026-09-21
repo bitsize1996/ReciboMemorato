@@ -154,6 +154,7 @@ function Index() {
         <BrandMark />
         <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
           <a href="#services">Services</a>
+          <Link to="/memories">Memory archive</Link>
           <a href="#story">Our story</a>
           <a href="#faqs">FAQs</a>
         </nav>
