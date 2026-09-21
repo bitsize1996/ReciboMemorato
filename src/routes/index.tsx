@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -14,6 +15,13 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EventCard } from "./memories.index";
+import { listPublishedEvents } from "@/lib/gallery.functions";
+
+const eventsQuery = queryOptions({
+  queryKey: ["events"],
+  queryFn: () => listPublishedEvents(),
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
