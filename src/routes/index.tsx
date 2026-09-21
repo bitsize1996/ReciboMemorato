@@ -148,6 +148,8 @@ function MemoryVisual({ type, label }: { type: string; label: string }) {
 }
 
 function Index() {
+  const { data: events } = useSuspenseQuery(eventsQuery);
+
   return (
     <main id="top" className="overflow-hidden bg-background text-foreground">
       <header className="site-header">
