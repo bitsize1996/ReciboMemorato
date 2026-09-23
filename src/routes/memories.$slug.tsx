@@ -106,23 +106,25 @@ function EventGalleryPage() {
         </div>
       </header>
 
-      <div className="category-tabs" role="tablist" aria-label="Memory categories">
-        {MEDIA_CATEGORIES.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={category === tab.key}
-            className={category === tab.key ? "is-active" : undefined}
-            onClick={() => setCategory(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {tabs.length > 0 ? (
+        <div className="category-tabs" role="tablist" aria-label="Memory categories">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active === tab.key}
+              className={active === tab.key ? "is-active" : undefined}
+              onClick={() => setCategory(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      <section className="category-panel" role="tabpanel" aria-label={category}>
-        <CategoryPanel slug={slug} category={category} />
+      <section className="category-panel" role="tabpanel" aria-label={active ?? "memories"}>
+        {active ? <CategoryPanel slug={slug} category={active} /> : <GalleryEmpty />}
       </section>
     </main>
   );
