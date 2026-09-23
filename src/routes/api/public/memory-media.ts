@@ -1,37 +1,57 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// Streams a Google Drive image through the server so that no credentials,
-// tokens or folder ids ever reach the browser. Only ids signed by this
-// server (handed out by the gallery listing) are accepted.
+// Serves a single approved media file through our own server so that no
+// Google credentials, tokens or folder ids ever reach the browser.
+// The database decides what is allowed: only files whose event is published,
+// whose own "published" switch is on, and — for downloads — whose "allow
+// download" switch is on, can be served.
 export const Route = createFileRoute("/api/public/memory-media")({
   server: {
     handlers: {
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const id = url.searchParams.get("id");
-        const sig = url.searchParams.get("sig");
-        if (!id || !sig) return new Response("Not found", { status: 404 });
+        const wantsDownload = url.searchParams.get("dl") === "1";
+        if (!id) return new Response("Not found", { status: 404 });
 
-        const { verifyFileId, isDriveConfigured, fetchDriveFile } = await import(
-          "@/lib/gallery/drive.server"
-        );
-        if (!isDriveConfigured() || !verifyFileId(id, sig)) {
+        const { publicSupabase } = await import("@/lib/gallery/events.server");
+        const { data: media } = await publicSupabase()
+          .from("media_items")
+          .select("id, name, drive_file_id, full_url, mime_type, source, download_enabled")
+          .eq("id", id)
+          .eq("published", true)
+          .maybeSingle();
+
+        if (!media) return new Response("Not found", { status: 404 });
+        if (wantsDownload && !media.download_enabled) {
           return new Response("Not found", { status: 404 });
         }
 
-        const upstream = await fetchDriveFile(id);
+        // Placeholder sample media lives on a public URL already.
+        if (media.source !== "drive" && media.full_url) {
+          return Response.redirect(media.full_url, 302);
+        }
+
+        const { isDriveConfigured, fetchDriveFile } = await import("@/lib/gallery/drive.server");
+        if (!isDriveConfigured()) return new Response("Unavailable", { status: 503 });
+
+        const upstream = await fetchDriveFile(media.drive_file_id);
         if (!upstream.ok || !upstream.body) {
           console.error(`Media proxy failed [${upstream.status}]`);
           return new Response("Unavailable", { status: 502 });
         }
 
-        return new Response(upstream.body, {
-          status: 200,
-          headers: {
-            "content-type": upstream.headers.get("content-type") ?? "image/jpeg",
-            "cache-control": "public, max-age=86400, immutable",
-          },
+        const headers = new Headers({
+          "content-type":
+            upstream.headers.get("content-type") ?? media.mime_type ?? "image/jpeg",
+          "cache-control": "public, max-age=86400",
         });
+        if (wantsDownload) {
+          const safeName = media.name.replace(/["\\]/g, "");
+          headers.set("content-disposition", `attachment; filename="${safeName}"`);
+        }
+
+        return new Response(upstream.body, { status: 200, headers });
       },
     },
   },
