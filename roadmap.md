@@ -7,3 +7,4 @@
 - [x] Owner sign-in and admin page for adding events
 - [ ] Replace temporary photo slots and Messenger link when supplied
 - [ ] Connect the Google Drive account so real event folders replace the sample photos
+- [x] Owner controls: publish/download switches per file, category switches, bulk actions, counts

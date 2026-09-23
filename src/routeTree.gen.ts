@@ -18,6 +18,7 @@ import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
 import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
 import { Route as AuthenticatedAdminEventsRouteImport } from './routes/_authenticated/admin.events'
 import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/memory-media'
+import { Route as AuthenticatedAdminGalleryEventIdRouteImport } from './routes/_authenticated/admin.gallery.$eventId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -65,6 +66,12 @@ const ApiPublicMemoryMediaRoute = ApiPublicMemoryMediaRouteImport.update({
   path: '/api/public/memory-media',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminGalleryEventIdRoute =
+  AuthenticatedAdminGalleryEventIdRouteImport.update({
+    id: '/admin/gallery/$eventId',
+    path: '/admin/gallery/$eventId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/memories/': typeof MemoriesIndexRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
+  '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -85,6 +93,7 @@ export interface FileRoutesByTo {
   '/memories': typeof MemoriesIndexRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
+  '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,6 +106,7 @@ export interface FileRoutesById {
   '/memories/': typeof MemoriesIndexRoute
   '/_authenticated/admin/events': typeof AuthenticatedAdminEventsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
+  '/_authenticated/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/memories/'
     | '/admin/events'
     | '/api/public/memory-media'
+    | '/admin/gallery/$eventId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/memories'
     | '/admin/events'
     | '/api/public/memory-media'
+    | '/admin/gallery/$eventId'
   id:
     | '__root__'
     | '/'
@@ -130,6 +142,7 @@ export interface FileRouteTypes {
     | '/memories/'
     | '/_authenticated/admin/events'
     | '/api/public/memory-media'
+    | '/_authenticated/admin/gallery/$eventId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -208,15 +221,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMemoryMediaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/gallery/$eventId': {
+      id: '/_authenticated/admin/gallery/$eventId'
+      path: '/admin/gallery/$eventId'
+      fullPath: '/admin/gallery/$eventId'
+      preLoaderRoute: typeof AuthenticatedAdminGalleryEventIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminEventsRoute: typeof AuthenticatedAdminEventsRoute
+  AuthenticatedAdminGalleryEventIdRoute: typeof AuthenticatedAdminGalleryEventIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
+  AuthenticatedAdminGalleryEventIdRoute: AuthenticatedAdminGalleryEventIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

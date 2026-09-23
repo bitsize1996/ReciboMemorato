@@ -18,15 +18,19 @@ export type Database = {
         Row: {
           cover_url: string | null
           created_at: string
+          digitals_enabled: boolean
           digitals_folder_id: string | null
           drive_folder_id: string | null
           event_date: string | null
+          gif_enabled: boolean
           gif_folder_id: string | null
           id: string
           location: string | null
           name: string
+          print_enabled: boolean
           print_folder_id: string | null
           published: boolean
+          singles_enabled: boolean
           singles_folder_id: string | null
           slug: string
           sort_order: number
@@ -35,15 +39,19 @@ export type Database = {
         Insert: {
           cover_url?: string | null
           created_at?: string
+          digitals_enabled?: boolean
           digitals_folder_id?: string | null
           drive_folder_id?: string | null
           event_date?: string | null
+          gif_enabled?: boolean
           gif_folder_id?: string | null
           id?: string
           location?: string | null
           name: string
+          print_enabled?: boolean
           print_folder_id?: string | null
           published?: boolean
+          singles_enabled?: boolean
           singles_folder_id?: string | null
           slug: string
           sort_order?: number
@@ -52,21 +60,90 @@ export type Database = {
         Update: {
           cover_url?: string | null
           created_at?: string
+          digitals_enabled?: boolean
           digitals_folder_id?: string | null
           drive_folder_id?: string | null
           event_date?: string | null
+          gif_enabled?: boolean
           gif_folder_id?: string | null
           id?: string
           location?: string | null
           name?: string
+          print_enabled?: boolean
           print_folder_id?: string | null
           published?: boolean
+          singles_enabled?: boolean
           singles_folder_id?: string | null
           slug?: string
           sort_order?: number
           updated_at?: string
         }
         Relationships: []
+      }
+      media_items: {
+        Row: {
+          category: string
+          created_at: string
+          download_enabled: boolean
+          drive_file_id: string
+          event_id: string
+          full_url: string | null
+          height: number | null
+          id: string
+          is_gif: boolean
+          mime_type: string | null
+          name: string
+          published: boolean
+          source: string
+          thumb_url: string | null
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          download_enabled?: boolean
+          drive_file_id: string
+          event_id: string
+          full_url?: string | null
+          height?: number | null
+          id?: string
+          is_gif?: boolean
+          mime_type?: string | null
+          name: string
+          published?: boolean
+          source?: string
+          thumb_url?: string | null
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          download_enabled?: boolean
+          drive_file_id?: string
+          event_id?: string
+          full_url?: string | null
+          height?: number | null
+          id?: string
+          is_gif?: boolean
+          mime_type?: string | null
+          name?: string
+          published?: boolean
+          source?: string
+          thumb_url?: string | null
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_items_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

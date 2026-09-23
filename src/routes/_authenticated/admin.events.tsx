@@ -251,6 +251,13 @@ function AdminEventsPage() {
               </span>
             </div>
             <div className="admin-actions">
+              <Link
+                to="/admin/gallery/$eventId"
+                params={{ eventId: row.id }}
+                className="admin-link"
+              >
+                Manage gallery
+              </Link>
               <button
                 type="button"
                 className="admin-link"

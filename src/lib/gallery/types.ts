@@ -12,6 +12,8 @@ export interface MediaItem {
   name: string;
   thumbUrl: string;
   fullUrl: string;
+  /** Null when the owner has turned downloads off for this file. */
+  downloadUrl: string | null;
   width: number | null;
   height: number | null;
   isGif: boolean;
@@ -31,6 +33,8 @@ export interface GalleryEvent {
   location: string | null;
   coverUrl: string | null;
   isSample: boolean;
+  /** Only the categories the owner has switched on for this event. */
+  categories: MediaCategory[];
 }
 
 export function formatEventDate(value: string | null): string {

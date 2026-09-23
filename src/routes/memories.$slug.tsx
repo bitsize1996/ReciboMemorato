@@ -80,7 +80,9 @@ function CategoryPanel({ slug, category }: { slug: string; category: MediaCatego
 function EventGalleryPage() {
   const { slug } = Route.useParams();
   const { data: event } = useSuspenseQuery(eventQuery(slug));
-  const [category, setCategory] = useState<MediaCategory>("print");
+  const tabs = MEDIA_CATEGORIES.filter((tab) => event?.categories.includes(tab.key));
+  const [category, setCategory] = useState<MediaCategory | null>(null);
+  const active = category && tabs.some((tab) => tab.key === category) ? category : tabs[0]?.key;
 
   if (!event) return null;
 
@@ -104,23 +106,25 @@ function EventGalleryPage() {
         </div>
       </header>
 
-      <div className="category-tabs" role="tablist" aria-label="Memory categories">
-        {MEDIA_CATEGORIES.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={category === tab.key}
-            className={category === tab.key ? "is-active" : undefined}
-            onClick={() => setCategory(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {tabs.length > 0 ? (
+        <div className="category-tabs" role="tablist" aria-label="Memory categories">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active === tab.key}
+              className={active === tab.key ? "is-active" : undefined}
+              onClick={() => setCategory(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      <section className="category-panel" role="tabpanel" aria-label={category}>
-        <CategoryPanel slug={slug} category={category} />
+      <section className="category-panel" role="tabpanel" aria-label={active ?? "memories"}>
+        {active ? <CategoryPanel slug={slug} category={active} /> : <GalleryEmpty />}
       </section>
     </main>
   );

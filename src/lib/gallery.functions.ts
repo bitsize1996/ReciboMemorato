@@ -1,17 +1,33 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import type { GalleryEvent, MediaCategory, MediaPage } from "./gallery/types";
+import type { GalleryEvent, MediaCategory, MediaItem, MediaPage } from "./gallery/types";
 
 const CATEGORIES = ["print", "digitals", "gif", "singles"] as const;
+const PAGE_SIZE = 24;
 
-function toGalleryEvent(row: {
+const EVENT_FIELDS =
+  "id, slug, name, event_date, location, cover_url, print_enabled, digitals_enabled, gif_enabled, singles_enabled";
+
+interface EventRowLite {
   id: string;
   slug: string;
   name: string;
   event_date: string | null;
   location: string | null;
   cover_url: string | null;
-}): GalleryEvent {
+  print_enabled: boolean;
+  digitals_enabled: boolean;
+  gif_enabled: boolean;
+  singles_enabled: boolean;
+}
+
+function toGalleryEvent(row: EventRowLite): GalleryEvent {
+  const flags: Record<MediaCategory, boolean> = {
+    print: row.print_enabled,
+    digitals: row.digitals_enabled,
+    gif: row.gif_enabled,
+    singles: row.singles_enabled,
+  };
   return {
     id: row.id,
     slug: row.slug,
@@ -20,6 +36,7 @@ function toGalleryEvent(row: {
     location: row.location,
     coverUrl: row.cover_url,
     isSample: false,
+    categories: CATEGORIES.filter((key) => flags[key]),
   };
 }
 
@@ -30,7 +47,7 @@ export const listPublishedEvents = createServerFn({ method: "GET" }).handler(
 
     const { data, error } = await publicSupabase()
       .from("events")
-      .select("id, slug, name, event_date, location, cover_url")
+      .select(EVENT_FIELDS)
       .eq("published", true)
       .order("sort_order", { ascending: false })
       .order("event_date", { ascending: false });
@@ -40,7 +57,7 @@ export const listPublishedEvents = createServerFn({ method: "GET" }).handler(
       throw new Error("events_unavailable");
     }
     if (!data || data.length === 0) return SAMPLE_EVENTS;
-    return data.map(toGalleryEvent);
+    return (data as EventRowLite[]).map(toGalleryEvent);
   },
 );
 
@@ -52,7 +69,7 @@ export const getPublishedEvent = createServerFn({ method: "GET" })
 
     const { data: row, error } = await publicSupabase()
       .from("events")
-      .select("id, slug, name, event_date, location, cover_url")
+      .select(EVENT_FIELDS)
       .eq("published", true)
       .eq("slug", data.slug)
       .maybeSingle();
@@ -61,7 +78,7 @@ export const getPublishedEvent = createServerFn({ method: "GET" })
       console.error("Failed to load event", error);
       throw new Error("events_unavailable");
     }
-    if (row) return toGalleryEvent(row);
+    if (row) return toGalleryEvent(row as EventRowLite);
     return SAMPLE_EVENTS.find((event) => event.slug === data.slug) ?? null;
   });
 
@@ -77,31 +94,61 @@ export const listEventMedia = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<MediaPage> => {
     const { publicSupabase } = await import("./gallery/events.server");
     const { getMockMedia } = await import("./gallery/mock.server");
-    const { isDriveConfigured, listDriveMediaCached } = await import("./gallery/drive.server");
 
-    const column = {
-      print: "print_folder_id",
-      digitals: "digitals_folder_id",
-      gif: "gif_folder_id",
-      singles: "singles_folder_id",
-    }[data.category];
-
-    const { data: row } = await publicSupabase()
+    const supabase = publicSupabase();
+    const { data: row, error } = await supabase
       .from("events")
-      .select("id, print_folder_id, digitals_folder_id, gif_folder_id, singles_folder_id")
+      .select(EVENT_FIELDS)
       .eq("published", true)
       .eq("slug", data.slug)
       .maybeSingle();
 
-    const folderId = row ? ((row as Record<string, unknown>)[column] as string | null) : null;
-
-    if (folderId && isDriveConfigured()) {
-      try {
-        return await listDriveMediaCached(folderId, data.pageToken);
-      } catch {
-        throw new Error("media_unavailable");
-      }
+    if (error) {
+      console.error("Failed to load event", error);
+      throw new Error("media_unavailable");
     }
 
-    return getMockMedia(data.slug, data.category, data.pageToken);
+    // Sample events live outside the database.
+    if (!row) return getMockMedia(data.slug, data.category, data.pageToken);
+
+    const event = toGalleryEvent(row as EventRowLite);
+    if (!event.categories.includes(data.category)) {
+      return { items: [], nextPageToken: null, source: "drive" };
+    }
+
+    const offset = data.pageToken ? Number(data.pageToken) || 0 : 0;
+    const { data: rows, error: mediaError } = await supabase
+      .from("media_items")
+      .select("id, name, thumb_url, full_url, width, height, is_gif, download_enabled")
+      .eq("event_id", event.id)
+      .eq("category", data.category)
+      .eq("published", true)
+      .order("name", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (mediaError) {
+      console.error("Failed to load media", mediaError);
+      throw new Error("media_unavailable");
+    }
+
+    const items: MediaItem[] = (rows ?? []).map((media) => {
+      const proxy = `/api/public/memory-media?id=${encodeURIComponent(media.id)}`;
+      const full = media.full_url ?? proxy;
+      return {
+        id: media.id,
+        name: media.name,
+        thumbUrl: media.thumb_url ?? full,
+        fullUrl: full,
+        downloadUrl: media.download_enabled ? `${proxy}&dl=1` : null,
+        width: media.width,
+        height: media.height,
+        isGif: media.is_gif,
+      };
+    });
+
+    return {
+      items,
+      nextPageToken: items.length === PAGE_SIZE ? String(offset + PAGE_SIZE) : null,
+      source: "drive",
+    };
   });

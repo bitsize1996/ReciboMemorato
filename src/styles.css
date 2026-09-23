@@ -446,3 +446,133 @@ h1 em, h2 em { color: var(--primary); font-family: var(--font-serif); font-weigh
   .lightbox-next { right: 22%; }
   .lightbox-stage img { max-height: 70svh; }
 }
+
+/* --- Owner gallery management ------------------------------------------- */
+.admin-panel {
+  border: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background: color-mix(in oklch, var(--background) 92%, var(--secondary));
+}
+.admin-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+.admin-hint {
+  margin: -0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+.admin-folders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.admin-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  border: 1px dashed color-mix(in oklch, var(--foreground) 18%, transparent);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+}
+.admin-folder strong {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.admin-folder strong.is-on {
+  color: var(--primary);
+  opacity: 1;
+}
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.admin-stats div {
+  border-top: 1px solid color-mix(in oklch, var(--foreground) 14%, transparent);
+  padding-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+}
+.admin-stats span {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.admin-stats strong {
+  font-size: 1.35rem;
+}
+.admin-category-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.admin-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.admin-media-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.admin-media-row {
+  display: grid;
+  grid-template-columns: auto 64px 1fr auto auto;
+  align-items: center;
+  gap: 0.9rem;
+  border: 1px solid color-mix(in oklch, var(--foreground) 10%, transparent);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--background);
+}
+.admin-media-row img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: calc(var(--radius) / 1.5);
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+.admin-media-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-media-meta strong {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-media-meta span {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.lightbox-download-label {
+  display: none;
+}
+@media (max-width: 700px) {
+  .admin-media-row {
+    grid-template-columns: auto 56px 1fr;
+    row-gap: 0.4rem;
+  }
+  .admin-media-row .admin-check {
+    grid-column: 2 / -1;
+  }
+}
