@@ -65,9 +65,18 @@ export function Lightbox({ items, index, onIndexChange, onClose }: LightboxProps
           {item.isGif ? " · GIF" : ""}
         </span>
         <div>
-          <a href={item.fullUrl} download={item.name} aria-label="Download this memory">
-            <Download aria-hidden="true" />
-          </a>
+          {item.downloadUrl ? (
+            <a
+              href={item.downloadUrl}
+              download={item.name}
+              aria-label={item.isGif ? "Download this GIF" : "Download this photo"}
+            >
+              <Download aria-hidden="true" />
+              <span className="lightbox-download-label">
+                {item.isGif ? "Download GIF" : "Download photo"}
+              </span>
+            </a>
+          ) : null}
           <button type="button" onClick={onClose} aria-label="Close">
             <X aria-hidden="true" />
           </button>
