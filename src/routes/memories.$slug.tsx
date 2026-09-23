@@ -80,7 +80,9 @@ function CategoryPanel({ slug, category }: { slug: string; category: MediaCatego
 function EventGalleryPage() {
   const { slug } = Route.useParams();
   const { data: event } = useSuspenseQuery(eventQuery(slug));
-  const [category, setCategory] = useState<MediaCategory>("print");
+  const tabs = MEDIA_CATEGORIES.filter((tab) => event?.categories.includes(tab.key));
+  const [category, setCategory] = useState<MediaCategory | null>(null);
+  const active = category && tabs.some((tab) => tab.key === category) ? category : tabs[0]?.key;
 
   if (!event) return null;
 
