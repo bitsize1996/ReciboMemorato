@@ -33,13 +33,15 @@ export const adminGetEvent = createServerFn({ method: "GET" })
   .inputValidator((input: { eventId: string }) => ({ eventId: String(input.eventId) }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
-    const { data: eventRow, error } = await (context.supabase as any)      .from("events")
+    const { data: event, error } = await (context.supabase as any)
+      .from("events")
       .select("*")
       .eq("id", data.eventId)
       .maybeSingle();
     if (error || !event) throw new Error("Event not found");
 
-    const { data: rows, error: mediaError } = await (context.supabase as any)      .from("media_items")
+    const { data: rows, error: mediaError } = await (context.supabase as any)
+      .from("media_items")
       .select("category, published, download_enabled")
       .eq("event_id", data.eventId);
     if (mediaError) throw new Error("Could not load gallery");
@@ -72,8 +74,11 @@ export const adminListMedia = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
-    const { data: rows, error } = await (context.supabase as any)      .from("media_items")
-      .select("id, name, thumb_url, full_url, is_gif, source, published, download_enabled, created_at")
+    const { data: rows, error } = await (context.supabase as any)
+      .from("media_items")
+      .select(
+        "id, name, thumb_url, full_url, is_gif, source, published, download_enabled, created_at",
+      )
       .eq("event_id", data.eventId)
       .eq("category", data.category)
       .order("name", { ascending: true })
@@ -94,7 +99,8 @@ export const syncEventMedia = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
 
-    const { data: eventRow, error } = await (context.supabase as any)      .from("events")
+    const { data: event, error } = await (context.supabase as any)
+      .from("events")
       .select("*")
       .eq("id", data.eventId)
       .maybeSingle();
@@ -104,7 +110,8 @@ export const syncEventMedia = createServerFn({ method: "POST" })
     const { buildMockFiles } = await import("./gallery/mock.server");
     const driveConnected = isDriveConfigured();
 
-    const { data: existing } = await (context.supabase as any)      .from("media_items")
+    const { data: existing } = await (context.supabase as any)
+      .from("media_items")
       .select("category, drive_file_id")
       .eq("event_id", data.eventId);
     const seen = new Set(
@@ -161,7 +168,8 @@ export const syncEventMedia = createServerFn({ method: "POST" })
 
     if (inserts.length > 0) {
       for (let i = 0; i < inserts.length; i += 500) {
-        const { error: insertError } = await (context.supabase as any)          .from("media_items")
+        const { error: insertError } = await (context.supabase as any)
+          .from("media_items")
           .insert(inserts.slice(i, i + 500));
         if (insertError) throw new Error(insertError.message);
       }
@@ -175,8 +183,7 @@ export const setMediaFlags = createServerFn({ method: "POST" })
   .inputValidator((input: { ids: string[]; published?: boolean; downloadEnabled?: boolean }) => ({
     ids: (input.ids ?? []).map(String),
     published: typeof input.published === "boolean" ? input.published : undefined,
-    downloadEnabled:
-      typeof input.downloadEnabled === "boolean" ? input.downloadEnabled : undefined,
+    downloadEnabled: typeof input.downloadEnabled === "boolean" ? input.downloadEnabled : undefined,
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
@@ -189,7 +196,8 @@ export const setMediaFlags = createServerFn({ method: "POST" })
     if (data.published === false) patch["download_enabled"] = false;
     if (Object.keys(patch).length === 0) return { ok: true };
 
-    const { error } = await (context.supabase as any)      .from("media_items")
+    const { error } = await (context.supabase as any)
+      .from("media_items")
       .update(patch)
       .in("id", data.ids);
     if (error) throw new Error(error.message);
@@ -220,7 +228,8 @@ export const setCategoryMediaFlags = createServerFn({ method: "POST" })
     if (data.published === false) patch["download_enabled"] = false;
     if (Object.keys(patch).length === 0) return { ok: true };
 
-    const { error } = await (context.supabase as any)      .from("media_items")
+    const { error } = await (context.supabase as any)
+      .from("media_items")
       .update(patch)
       .eq("event_id", data.eventId)
       .eq("category", data.category);
@@ -237,7 +246,8 @@ export const setEventCategoryEnabled = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
-    const { error } = await (context.supabase as any)      .from("events")
+    const { error } = await (context.supabase as any)
+      .from("events")
       .update({ [`${data.category}_enabled`]: data.enabled })
       .eq("id", data.eventId);
     if (error) throw new Error(error.message);
@@ -252,7 +262,8 @@ export const setEventPublished = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
-    const { error } = await (context.supabase as any)      .from("events")
+    const { error } = await (context.supabase as any)
+      .from("events")
       .update({ published: data.published })
       .eq("id", data.eventId);
     if (error) throw new Error(error.message);
