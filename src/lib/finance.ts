@@ -81,3 +81,17 @@ export const inRange = (date: string | null, r: { from: string; to: string }) =>
   !!date && (!r.from || date >= r.from) && (!r.to || date <= r.to);
 
 export const thisMonth = () => rangeDates("month");
+
+export function sumSales(rows: { totals: { netRevenue: number; totalCost: number; profit: number; materials: number; expenses: number } }[]) {
+  return rows.reduce(
+    (a, s) => ({
+      revenue: a.revenue + s.totals.netRevenue,
+      cost: a.cost + s.totals.totalCost,
+      profit: a.profit + s.totals.profit,
+      materials: a.materials + s.totals.materials,
+      expenses: a.expenses + s.totals.expenses,
+    }),
+    { revenue: 0, cost: 0, profit: 0, materials: 0, expenses: 0 },
+  );
+}
+

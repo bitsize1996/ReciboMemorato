@@ -2,25 +2,12 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { Stat, useRange } from "@/components/admin/RangeFilter";
 import { useSales } from "@/lib/admin-data";
-import { inRange, margin, pct, peso, saleCode, statusLabel, thisMonth } from "@/lib/finance";
+import { sumSales, inRange, margin, pct, peso, saleCode, statusLabel, thisMonth } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({ meta: [{ title: "Overview | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
   component: Overview,
 });
-
-export function sumSales(rows: { totals: { netRevenue: number; totalCost: number; profit: number; materials: number; expenses: number } }[]) {
-  return rows.reduce(
-    (a, s) => ({
-      revenue: a.revenue + s.totals.netRevenue,
-      cost: a.cost + s.totals.totalCost,
-      profit: a.profit + s.totals.profit,
-      materials: a.materials + s.totals.materials,
-      expenses: a.expenses + s.totals.expenses,
-    }),
-    { revenue: 0, cost: 0, profit: 0, materials: 0, expenses: 0 },
-  );
-}
 
 function Overview() {
   const sales = useSales();

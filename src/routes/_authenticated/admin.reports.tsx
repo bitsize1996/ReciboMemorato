@@ -3,8 +3,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 
 import { Stat, useRange } from "@/components/admin/RangeFilter";
 import { useSales } from "@/lib/admin-data";
-import { inRange, margin, pct, peso } from "@/lib/finance";
-import { sumSales } from "./admin.index";
+import { inRange, margin, pct, peso, sumSales } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   head: () => ({ meta: [{ title: "Reports | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),

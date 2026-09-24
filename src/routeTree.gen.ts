@@ -14,11 +14,20 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
 import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminEventsRouteImport } from './routes/_authenticated/admin.events'
+import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/admin.expenses'
+import { Route as AuthenticatedAdminMaterialsRouteImport } from './routes/_authenticated/admin.materials'
+import { Route as AuthenticatedAdminPackagesRouteImport } from './routes/_authenticated/admin.packages'
+import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
+import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/memory-media'
 import { Route as AuthenticatedAdminGalleryEventIdRouteImport } from './routes/_authenticated/admin.gallery.$eventId'
+import { Route as AuthenticatedAdminSalesIndexRouteImport } from './routes/_authenticated/admin.sales.index'
+import { Route as AuthenticatedAdminSalesSaleIdRouteImport } from './routes/_authenticated/admin.sales.$saleId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +54,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const MemoriesIndexRoute = MemoriesIndexRouteImport.update({
   id: '/memories/',
   path: '/memories/',
@@ -55,11 +69,46 @@ const MemoriesSlugRoute = MemoriesSlugRouteImport.update({
   path: '/memories/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminEventsRoute =
   AuthenticatedAdminEventsRouteImport.update({
-    id: '/admin/events',
-    path: '/admin/events',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/events',
+    path: '/events',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminExpensesRoute =
+  AuthenticatedAdminExpensesRouteImport.update({
+    id: '/expenses',
+    path: '/expenses',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminMaterialsRoute =
+  AuthenticatedAdminMaterialsRouteImport.update({
+    id: '/materials',
+    path: '/materials',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminPackagesRoute =
+  AuthenticatedAdminPackagesRouteImport.update({
+    id: '/packages',
+    path: '/packages',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminReportsRoute =
+  AuthenticatedAdminReportsRouteImport.update({
+    id: '/reports',
+    path: '/reports',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSettingsRoute =
+  AuthenticatedAdminSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const ApiPublicMemoryMediaRoute = ApiPublicMemoryMediaRouteImport.update({
   id: '/api/public/memory-media',
@@ -68,9 +117,21 @@ const ApiPublicMemoryMediaRoute = ApiPublicMemoryMediaRouteImport.update({
 } as any)
 const AuthenticatedAdminGalleryEventIdRoute =
   AuthenticatedAdminGalleryEventIdRouteImport.update({
-    id: '/admin/gallery/$eventId',
-    path: '/admin/gallery/$eventId',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/gallery/$eventId',
+    path: '/gallery/$eventId',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSalesIndexRoute =
+  AuthenticatedAdminSalesIndexRouteImport.update({
+    id: '/sales/',
+    path: '/sales/',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSalesSaleIdRoute =
+  AuthenticatedAdminSalesSaleIdRouteImport.update({
+    id: '/sales/$saleId',
+    path: '/sales/$saleId',
+    getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -78,11 +139,20 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
+  '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
+  '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
+  '/admin/packages': typeof AuthenticatedAdminPackagesRoute
+  '/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
+  '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRoute
+  '/admin/sales/': typeof AuthenticatedAdminSalesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,8 +162,16 @@ export interface FileRoutesByTo {
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories': typeof MemoriesIndexRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
+  '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
+  '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
+  '/admin/packages': typeof AuthenticatedAdminPackagesRoute
+  '/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
+  '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRoute
+  '/admin/sales': typeof AuthenticatedAdminSalesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,11 +180,20 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
   '/_authenticated/admin/events': typeof AuthenticatedAdminEventsRoute
+  '/_authenticated/admin/expenses': typeof AuthenticatedAdminExpensesRoute
+  '/_authenticated/admin/materials': typeof AuthenticatedAdminMaterialsRoute
+  '/_authenticated/admin/packages': typeof AuthenticatedAdminPackagesRoute
+  '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
+  '/_authenticated/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRoute
+  '/_authenticated/admin/sales/': typeof AuthenticatedAdminSalesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,11 +202,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/admin'
     | '/memories/$slug'
     | '/memories/'
     | '/admin/events'
+    | '/admin/expenses'
+    | '/admin/materials'
+    | '/admin/packages'
+    | '/admin/reports'
+    | '/admin/settings'
     | '/api/public/memory-media'
+    | '/admin/'
     | '/admin/gallery/$eventId'
+    | '/admin/sales/$saleId'
+    | '/admin/sales/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -129,8 +225,16 @@ export interface FileRouteTypes {
     | '/memories/$slug'
     | '/memories'
     | '/admin/events'
+    | '/admin/expenses'
+    | '/admin/materials'
+    | '/admin/packages'
+    | '/admin/reports'
+    | '/admin/settings'
     | '/api/public/memory-media'
+    | '/admin'
     | '/admin/gallery/$eventId'
+    | '/admin/sales/$saleId'
+    | '/admin/sales'
   id:
     | '__root__'
     | '/'
@@ -138,11 +242,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/mcp'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/admin'
     | '/memories/$slug'
     | '/memories/'
     | '/_authenticated/admin/events'
+    | '/_authenticated/admin/expenses'
+    | '/_authenticated/admin/materials'
+    | '/_authenticated/admin/packages'
+    | '/_authenticated/admin/reports'
+    | '/_authenticated/admin/settings'
     | '/api/public/memory-media'
+    | '/_authenticated/admin/'
     | '/_authenticated/admin/gallery/$eventId'
+    | '/_authenticated/admin/sales/$saleId'
+    | '/_authenticated/admin/sales/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -193,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/memories/': {
       id: '/memories/'
       path: '/memories'
@@ -207,12 +327,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MemoriesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/events': {
       id: '/_authenticated/admin/events'
-      path: '/admin/events'
+      path: '/events'
       fullPath: '/admin/events'
       preLoaderRoute: typeof AuthenticatedAdminEventsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/expenses': {
+      id: '/_authenticated/admin/expenses'
+      path: '/expenses'
+      fullPath: '/admin/expenses'
+      preLoaderRoute: typeof AuthenticatedAdminExpensesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/materials': {
+      id: '/_authenticated/admin/materials'
+      path: '/materials'
+      fullPath: '/admin/materials'
+      preLoaderRoute: typeof AuthenticatedAdminMaterialsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/packages': {
+      id: '/_authenticated/admin/packages'
+      path: '/packages'
+      fullPath: '/admin/packages'
+      preLoaderRoute: typeof AuthenticatedAdminPackagesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/reports': {
+      id: '/_authenticated/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AuthenticatedAdminReportsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/settings': {
+      id: '/_authenticated/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
     }
     '/api/public/memory-media': {
       id: '/api/public/memory-media'
@@ -223,22 +385,63 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/admin/gallery/$eventId': {
       id: '/_authenticated/admin/gallery/$eventId'
-      path: '/admin/gallery/$eventId'
+      path: '/gallery/$eventId'
       fullPath: '/admin/gallery/$eventId'
       preLoaderRoute: typeof AuthenticatedAdminGalleryEventIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sales/': {
+      id: '/_authenticated/admin/sales/'
+      path: '/sales'
+      fullPath: '/admin/sales/'
+      preLoaderRoute: typeof AuthenticatedAdminSalesIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sales/$saleId': {
+      id: '/_authenticated/admin/sales/$saleId'
+      path: '/sales/$saleId'
+      fullPath: '/admin/sales/$saleId'
+      preLoaderRoute: typeof AuthenticatedAdminSalesSaleIdRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
     }
   }
 }
 
-interface AuthenticatedRouteRouteChildren {
+interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminEventsRoute: typeof AuthenticatedAdminEventsRoute
+  AuthenticatedAdminExpensesRoute: typeof AuthenticatedAdminExpensesRoute
+  AuthenticatedAdminMaterialsRoute: typeof AuthenticatedAdminMaterialsRoute
+  AuthenticatedAdminPackagesRoute: typeof AuthenticatedAdminPackagesRoute
+  AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
+  AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminGalleryEventIdRoute: typeof AuthenticatedAdminGalleryEventIdRoute
+  AuthenticatedAdminSalesSaleIdRoute: typeof AuthenticatedAdminSalesSaleIdRoute
+  AuthenticatedAdminSalesIndexRoute: typeof AuthenticatedAdminSalesIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
+  AuthenticatedAdminExpensesRoute: AuthenticatedAdminExpensesRoute,
+  AuthenticatedAdminMaterialsRoute: AuthenticatedAdminMaterialsRoute,
+  AuthenticatedAdminPackagesRoute: AuthenticatedAdminPackagesRoute,
+  AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
+  AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  AuthenticatedAdminGalleryEventIdRoute: AuthenticatedAdminGalleryEventIdRoute,
+  AuthenticatedAdminSalesSaleIdRoute: AuthenticatedAdminSalesSaleIdRoute,
+  AuthenticatedAdminSalesIndexRoute: AuthenticatedAdminSalesIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
-  AuthenticatedAdminGalleryEventIdRoute: AuthenticatedAdminGalleryEventIdRoute,
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =
