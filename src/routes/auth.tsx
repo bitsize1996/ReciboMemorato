@@ -35,7 +35,7 @@ function AuthPage() {
         : await supabase.auth.signUp({
             email,
             password,
-            options: { emailRedirectTo: `${window.location.origin}/admin/events` },
+            options: { emailRedirectTo: `${window.location.origin}/admin` },
           });
     setBusy(false);
     if (result.error) {
@@ -46,7 +46,7 @@ function AuthPage() {
       setMessage("Check your email to confirm the account, then sign in.");
       return;
     }
-    navigate({ to: "/admin/events" });
+    navigate({ to: "/admin" });
   }
 
   return (

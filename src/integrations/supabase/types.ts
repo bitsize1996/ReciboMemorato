@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          archived: boolean
           cover_url: string | null
           created_at: string
           digitals_enabled: boolean
@@ -37,6 +38,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived?: boolean
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -58,6 +60,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived?: boolean
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -76,6 +79,48 @@ export type Database = {
           singles_folder_id?: string | null
           slug?: string
           sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      materials: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          current_stock: number | null
+          current_unit_cost: number
+          id: string
+          min_stock: number | null
+          name: string
+          supplier: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          current_stock?: number | null
+          current_unit_cost?: number
+          id?: string
+          min_stock?: number | null
+          name: string
+          supplier?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          current_stock?: number | null
+          current_unit_cost?: number
+          id?: string
+          min_stock?: number | null
+          name?: string
+          supplier?: string | null
+          unit?: string
           updated_at?: string
         }
         Relationships: []
@@ -145,6 +190,251 @@ export type Database = {
           },
         ]
       }
+      package_materials: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          package_id: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          package_id: string
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          package_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_materials_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packages: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          estimated_other_costs: number
+          id: string
+          included_services: string | null
+          name: string
+          notes: string | null
+          selling_price: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          estimated_other_costs?: number
+          id?: string
+          included_services?: string | null
+          name: string
+          notes?: string | null
+          selling_price?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          estimated_other_costs?: number
+          id?: string
+          included_services?: string | null
+          name?: string
+          notes?: string | null
+          selling_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sale_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          notes: string | null
+          sale_id: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          sale_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_expenses_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_materials: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string | null
+          material_name_snapshot: string
+          quantity: number
+          sale_id: string
+          total_cost: number | null
+          unit_cost_snapshot: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          material_name_snapshot: string
+          quantity?: number
+          sale_id: string
+          total_cost?: number | null
+          unit_cost_snapshot?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string | null
+          material_name_snapshot?: string
+          quantity?: number
+          sale_id?: string
+          total_cost?: number | null
+          unit_cost_snapshot?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_materials_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          amount_paid: number
+          booking_date: string
+          created_at: string
+          customer_contact: string | null
+          customer_name: string
+          discount: number
+          event_date: string | null
+          event_id: string | null
+          event_name: string | null
+          id: string
+          notes: string | null
+          package_id: string | null
+          package_name_snapshot: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          quantity: number
+          sale_number: number
+          selling_price: number
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number
+          booking_date?: string
+          created_at?: string
+          customer_contact?: string | null
+          customer_name: string
+          discount?: number
+          event_date?: string | null
+          event_id?: string | null
+          event_name?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          package_name_snapshot?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          quantity?: number
+          sale_number?: number
+          selling_price?: number
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number
+          booking_date?: string
+          created_at?: string
+          customer_contact?: string | null
+          customer_name?: string
+          discount?: number
+          event_date?: string | null
+          event_id?: string | null
+          event_name?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          package_name_snapshot?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          quantity?: number
+          sale_number?: number
+          selling_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -181,6 +471,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      payment_status:
+        | "unpaid"
+        | "partially_paid"
+        | "fully_paid"
+        | "refunded"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -309,6 +605,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      payment_status: [
+        "unpaid",
+        "partially_paid",
+        "fully_paid",
+        "refunded",
+        "cancelled",
+      ],
     },
   },
 } as const
