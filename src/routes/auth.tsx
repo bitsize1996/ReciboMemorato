@@ -19,7 +19,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -29,6 +29,20 @@ function AuthPage() {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
+
+    if (mode === "forgot") {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      setBusy(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      setMessage("Check your email for the password reset link.");
+      return;
+    }
+
     const result =
       mode === "signin"
         ? await supabase.auth.signInWithPassword({ email, password })
@@ -49,11 +63,13 @@ function AuthPage() {
     navigate({ to: "/admin" });
   }
 
+  const heading = mode === "forgot" ? "Reset your password" : mode === "signup" ? "Create your owner account" : "Sign in";
+
   return (
     <main className="auth-page">
       <form className="auth-card" onSubmit={onSubmit}>
         <p className="eyebrow">Owner access</p>
-        <h1>{mode === "signin" ? "Sign in" : "Create your owner account"}</h1>
+        <h1>{heading}</h1>
         <label>
           Email
           <input
@@ -64,28 +80,52 @@ function AuthPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
         </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            required
-            minLength={8}
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
+        {mode !== "forgot" ? (
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              required
+              minLength={8}
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+        ) : null}
         {message ? <p className="auth-message">{message}</p> : null}
         <Button type="submit" disabled={busy}>
-          {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+          {busy
+            ? "Please wait…"
+            : mode === "forgot"
+              ? "Send reset email"
+              : mode === "signin"
+                ? "Sign in"
+                : "Create account"}
         </Button>
-        <button
-          type="button"
-          className="auth-switch"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-        >
-          {mode === "signin" ? "Need an account? Create one" : "Already have an account? Sign in"}
-        </button>
+        {mode === "signin" ? (
+          <button
+            type="button"
+            className="auth-switch"
+            onClick={() => {
+              setMode("forgot");
+              setMessage(null);
+            }}
+          >
+            Forgot your password?
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="auth-switch"
+            onClick={() => {
+              setMode("signin");
+              setMessage(null);
+            }}
+          >
+            {mode === "forgot" ? "Back to sign in" : "Already have an account? Sign in"}
+          </button>
+        )}
       </form>
     </main>
   );
