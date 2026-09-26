@@ -48,9 +48,9 @@ export const services: Service[] = [
 
 export const faqs: { question: string; answer: string }[] = [
   {
-    question: "What photobooths do you have?",
+    question: "What services do you offer?",
     answer:
-      "We offer five experiences: the Receipt Photobooth (receipt-style photo output with a retro booth), the Standard Photobooth (conventional booth with 4×6 prints), the High-Angle Photobooth (overhead camera perspective), Sintra Board Photos (A3 and A4), and Original Instax Photo Printing.",
+      "We offer three main services: photobooths, photo Sintra board printing, and Instax printing. Under photobooths, we have three options: the Receipt Photobooth (receipt-style photo output with a retro booth), the Standard Photobooth (conventional booth with 4×6 prints), and the High-Angle Photobooth (overhead camera perspective).",
   },
   {
     question: "What's the difference between the Receipt Photobooth and the Standard Photobooth?",
