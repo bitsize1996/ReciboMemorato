@@ -53,15 +53,15 @@ const services = [
     icon: ReceiptText,
     title: "Receipt Photobooth",
     tagline: "Your memories, printed like a receipt.",
-    body: "A playful take on the ordinary receipt — except this one is worth keeping. Capture your moments and walk away with a physical reminder of the day.",
+    body: "A unique alternative to a conventional photobooth — named for its distinctive receipt-style photo output, with a retro-inspired booth where the camera and monitor are enclosed inside the box.",
     visual: "receipt",
   },
   {
     number: "02",
     icon: Camera,
-    title: "Photobooth",
+    title: "Standard Photobooth",
     tagline: "Classic photobooth fun, made tangible.",
-    body: "Gather your people, strike your favorite poses, and create photos you'll actually want to keep.",
+    body: "Our conventional photobooth experience. Photos are printed in 4×6 using a non-ink printing process, designed for more durable, longer-lasting keepsakes.",
     visual: "strip",
   },
   {
@@ -69,15 +69,15 @@ const services = [
     icon: ArrowDown,
     title: "High-Angle Photobooth",
     tagline: "See the moment from a different angle.",
-    body: "A fun perspective that turns group moments, outfits, poses, and celebrations into something a little more memorable.",
+    body: "Photos captured from a high/overhead angle — a more private, comfortable experience that helps guests relax, have fun, and pose without feeling shy in front of a camera.",
     visual: "angle",
   },
   {
     number: "04",
     icon: Maximize2,
-    title: "Photo Sintra Board",
+    title: "Sintra Board Photo",
     tagline: "Turn a memory into something you can display.",
-    body: "Take a favorite photo beyond the photobooth strip and turn it into a physical keepsake you can put somewhere you'll actually see it.",
+    body: "Your photo produced on Sintra board, available in A3 and A4 sizes — a physical keepsake you can put somewhere you'll actually see it.",
     visual: "board",
   },
   {
@@ -85,31 +85,35 @@ const services = [
     icon: Sparkles,
     title: "Original Instax Printing",
     tagline: "Instant memories. Literally.",
-    body: "Get your moments printed in that unmistakable Instax format — ready to hold, share, display, or keep in your memory box.",
+    body: "Physical photo prints made using original Instax materials — ready to hold, share, display, or keep in your memory box.",
     visual: "instax",
   },
 ];
 
 const faqs = [
   [
-    "Do you only offer receipt-style photobooths?",
-    "No. Recibo Memorato also offers regular photobooth experiences, high-angle photobooth, Photo Sintra Board, and Original Instax Printing.",
+    "What photobooths do you have?",
+    "Five experiences: the Receipt Photobooth (receipt-style prints, retro booth), the Standard Photobooth (4×6 prints), the High-Angle Photobooth (overhead perspective), Sintra Board Photos (A3 and A4), and Original Instax Photo Printing.",
   ],
   [
-    "What events can we book you for?",
-    "Recibo Memorato is designed for celebrations and moments worth keeping. Send us a message with your event details and we'll help you with the available setup.",
+    "What's the difference between the Receipt Photobooth and the Standard Photobooth?",
+    "The Receipt Photobooth is a unique alternative with a distinctive receipt-style photo output and a retro-inspired booth. The Standard Photobooth is our conventional experience, printing 4×6 photos with a non-ink printing process designed for more durable, longer-lasting keepsakes.",
   ],
   [
-    "Can we get physical prints?",
-    "Yes. Physical keepsakes are at the heart of Recibo Memorato, with options including receipt-style prints, Sintra Board, and Original Instax prints.",
+    "Are your prints printed with ink?",
+    "Our Standard Photobooth uses a non-ink printing process rather than a conventional ink-based printer — designed to give you keepsakes that are more durable and longer-lasting.",
+  ],
+  [
+    "What is a High-Angle Photobooth?",
+    "It captures photos from a high/overhead angle for a different perspective. Because the camera is above you, it's a more private and comfortable experience — easier to relax and have fun without feeling shy.",
+  ],
+  [
+    "Do you offer Sintra board photos and Instax printing?",
+    "Yes! Sintra board photos are available in A3 and A4 sizes, and we offer Original Instax photo printing using original Instax materials.",
   ],
   [
     "How do we book?",
-    "Simply send us a message. We'll guide you through the next steps and provide the details you need.",
-  ],
-  [
-    "What happens after I send a message?",
-    "You'll receive confirmation and be directed to Messenger for the next step in your inquiry.",
+    "Simply send us a message with your event details (date, location, and the setup you're interested in). We'll guide you through the next steps — pricing is shared on request.",
   ],
 ];
 
