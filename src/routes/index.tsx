@@ -92,8 +92,8 @@ const services = [
 
 const faqs = [
   [
-    "What photobooths do you have?",
-    "Five experiences: the Receipt Photobooth (receipt-style prints, retro booth), the Standard Photobooth (4×6 prints), the High-Angle Photobooth (overhead perspective), Sintra Board Photos (A3 and A4), and Original Instax Photo Printing.",
+    "What services do you offer?",
+    "We offer three main services: photobooths, photo Sintra board printing, and Instax printing. Under photobooths, we have three options: the Receipt Photobooth (receipt-style prints, retro booth), the Standard Photobooth (4×6 prints), and the High-Angle Photobooth (overhead perspective).",
   ],
   [
     "What's the difference between the Receipt Photobooth and the Standard Photobooth?",
