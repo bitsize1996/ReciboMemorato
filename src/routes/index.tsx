@@ -353,7 +353,7 @@ function Index() {
       <footer className="site-footer" id="contact">
         <BrandMark />
         <p>Photobooth · Receipt Photobooth · High Angle · Sintra Board · Original Instax Printing</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><a href="#faqs">FAQs</a><a href={messengerUrl} target="_blank" rel="noreferrer">Contact</a></nav>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><a href="#faqs">FAQs</a><a href={messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
         <a href={messengerUrl} className="footer-social" target="_blank" rel="noreferrer" aria-label="Find Recibo Memorato on social media"><Instagram aria-hidden="true" /></a>
         <small>© 2026 Recibo Memorato. Made for moments worth keeping.</small>
       </footer>
