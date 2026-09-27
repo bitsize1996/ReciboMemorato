@@ -110,9 +110,10 @@ function ArchivePage() {
 }
 
 function ArchiveError() {
+  const { data: s } = useSuspenseQuery(siteSettingsQuery);
   return (
     <main className="archive-page">
-      <ArchiveHeader />
+      <ArchiveHeader s={s} />
       <div className="gallery-state">
         <p className="eyebrow">Archive offline</p>
         <h3>Memory archive temporarily unavailable.</h3>
