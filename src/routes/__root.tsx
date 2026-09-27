@@ -156,14 +156,18 @@ function themeOverride(s: SiteSettings): string | null {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { data: settings } = useSuspenseQuery(siteSettingsQuery);
-  const css = themeOverride(settings);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {css ? <style>{css}</style> : null}
+      <SiteTheme />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>
   );
+}
+
+function SiteTheme() {
+  const { data: settings } = useSuspenseQuery(siteSettingsQuery);
+  const css = themeOverride(settings);
+  return css ? <style>{css}</style> : null;
 }
