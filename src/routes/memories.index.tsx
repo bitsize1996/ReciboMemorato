@@ -3,6 +3,8 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 
 import { listPublishedEvents } from "@/lib/gallery.functions";
+import { siteSettingsQuery } from "@/lib/site.functions";
+import type { SiteSettings } from "@/lib/site-settings";
 import { formatEventDate, formatReceiptDate } from "@/lib/gallery/types";
 import type { GalleryEvent } from "@/lib/gallery/types";
 
@@ -67,13 +69,13 @@ export function EventCard({ event }: { event: GalleryEvent }) {
   );
 }
 
-function ArchiveHeader() {
+function ArchiveHeader({ s }: { s: SiteSettings }) {
   return (
     <header className="archive-head">
-      <Link to="/" className="brand-mark" aria-label="Recibo Memorato home">
-        <span>RECIBO</span>
-        <span>MEMORATO</span>
-        <small>by the bitsize sibs</small>
+      <Link to="/" className="brand-mark" aria-label={`${s.brandLine1} ${s.brandLine2} home`}>
+        <span>{s.brandLine1}</span>
+        <span>{s.brandLine2}</span>
+        <small>{s.brandSub}</small>
       </Link>
       <p className="eyebrow">Memory archive</p>
       <h1>Receipts from moments that happened.</h1>
@@ -87,11 +89,12 @@ function ArchiveHeader() {
 
 function ArchivePage() {
   const { data: events } = useSuspenseQuery(eventsQuery);
+  const { data: s } = useSuspenseQuery(siteSettingsQuery);
   const hasSamples = events.some((event) => event.isSample);
 
   return (
     <main className="archive-page">
-      <ArchiveHeader />
+      <ArchiveHeader s={s} />
       {hasSamples ? (
         <p className="archive-note">
           Showing sample events. Real galleries appear once events are added in the admin page.
