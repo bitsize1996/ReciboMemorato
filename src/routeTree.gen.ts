@@ -19,6 +19,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
 import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminCustomizeRouteImport } from './routes/_authenticated/admin.customize'
 import { Route as AuthenticatedAdminEventsRouteImport } from './routes/_authenticated/admin.events'
 import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/admin.expenses'
 import { Route as AuthenticatedAdminMaterialsRouteImport } from './routes/_authenticated/admin.materials'
@@ -80,6 +81,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminCustomizeRoute =
+  AuthenticatedAdminCustomizeRouteImport.update({
+    id: '/customize',
+    path: '/customize',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminEventsRoute =
   AuthenticatedAdminEventsRouteImport.update({
     id: '/events',
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
+  '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
@@ -169,6 +177,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories': typeof MemoriesIndexRoute
+  '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
@@ -192,6 +201,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
+  '/_authenticated/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/_authenticated/admin/events': typeof AuthenticatedAdminEventsRoute
   '/_authenticated/admin/expenses': typeof AuthenticatedAdminExpensesRoute
   '/_authenticated/admin/materials': typeof AuthenticatedAdminMaterialsRoute
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/memories/$slug'
     | '/memories/'
+    | '/admin/customize'
     | '/admin/events'
     | '/admin/expenses'
     | '/admin/materials'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/memories/$slug'
     | '/memories'
+    | '/admin/customize'
     | '/admin/events'
     | '/admin/expenses'
     | '/admin/materials'
@@ -257,6 +269,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/memories/$slug'
     | '/memories/'
+    | '/_authenticated/admin/customize'
     | '/_authenticated/admin/events'
     | '/_authenticated/admin/expenses'
     | '/_authenticated/admin/materials'
@@ -354,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/customize': {
+      id: '/_authenticated/admin/customize'
+      path: '/customize'
+      fullPath: '/admin/customize'
+      preLoaderRoute: typeof AuthenticatedAdminCustomizeRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/events': {
       id: '/_authenticated/admin/events'
       path: '/events'
@@ -428,6 +448,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminCustomizeRoute: typeof AuthenticatedAdminCustomizeRoute
   AuthenticatedAdminEventsRoute: typeof AuthenticatedAdminEventsRoute
   AuthenticatedAdminExpensesRoute: typeof AuthenticatedAdminExpensesRoute
   AuthenticatedAdminMaterialsRoute: typeof AuthenticatedAdminMaterialsRoute
@@ -441,6 +462,7 @@ interface AuthenticatedAdminRouteChildren {
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminCustomizeRoute: AuthenticatedAdminCustomizeRoute,
   AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
   AuthenticatedAdminExpensesRoute: AuthenticatedAdminExpensesRoute,
   AuthenticatedAdminMaterialsRoute: AuthenticatedAdminMaterialsRoute,

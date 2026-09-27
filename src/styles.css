@@ -640,3 +640,10 @@ h1 em, h2 em { color: var(--primary); font-family: var(--font-serif); font-weigh
   .adm-main{padding:1rem}
   .adm-line{grid-template-columns:1fr 1fr}
 }
+
+/* ===== Admin Customize ===== */
+.adm-colors { display: flex; flex-direction: column; gap: 14px; max-width: 480px; }
+.adm-color-row { display: flex; align-items: center; gap: 14px; }
+.adm-color-row input[type="color"] { width: 52px; height: 36px; padding: 2px; border: 1px solid var(--adm-line); border-radius: 6px; background: var(--adm-card); cursor: pointer; }
+.adm-color-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--adm-ink); }
+.adm-color-label input { max-width: 110px; padding: 6px 8px; border: 1px solid var(--adm-line); border-radius: 6px; font-size: 13px; background: var(--adm-card); color: var(--adm-ink); }

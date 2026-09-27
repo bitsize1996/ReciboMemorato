@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Site customization
+- Customizable site texts, brand name, and colors live in the `site_settings` table (single row), edited at /admin/customize. Read via `siteSettingsQuery` (never throws — falls back to `DEFAULT_SETTINGS` in src/lib/site-settings.ts). Brand colors override CSS tokens through the `<style>` injected in `src/routes/__root.tsx` (skipped while colors equal defaults). *stars* in stored text render as italic.

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useSuspenseQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -11,6 +11,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { siteSettingsQuery } from "../lib/site.functions";
+import { DEFAULT_SETTINGS, type SiteSettings } from "../lib/site-settings";
 
 function NotFoundComponent() {
   return (
@@ -101,6 +103,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
   }),
   shellComponent: RootShell,
+  loader: ({ context }) => context.queryClient.ensureQueryData(siteSettingsQuery),
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
@@ -120,13 +123,51 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/** Brand colors chosen in the admin Customize page override the default tokens. */
+function themeOverride(s: SiteSettings): string | null {
+  const untouched =
+    s.colorAccent === DEFAULT_SETTINGS.colorAccent &&
+    s.colorPaper === DEFAULT_SETTINGS.colorPaper &&
+    s.colorInk === DEFAULT_SETTINGS.colorInk;
+  if (untouched) return null;
+  return [
+    `:root{`,
+    `--primary:${s.colorAccent};`,
+    `--ring:${s.colorAccent};`,
+    `--destructive:${s.colorAccent};`,
+    `--background:${s.colorPaper};`,
+    `--foreground:${s.colorInk};`,
+    `--card:color-mix(in oklab, ${s.colorPaper} 88%, white);`,
+    `--popover:var(--card);`,
+    `--card-foreground:${s.colorInk};`,
+    `--popover-foreground:${s.colorInk};`,
+    `--primary-foreground:color-mix(in oklab, ${s.colorPaper} 92%, white);`,
+    `--secondary:color-mix(in oklab, ${s.colorPaper} 82%, ${s.colorInk});`,
+    `--secondary-foreground:${s.colorInk};`,
+    `--muted:color-mix(in oklab, ${s.colorPaper} 88%, ${s.colorInk});`,
+    `--muted-foreground:color-mix(in oklab, ${s.colorInk} 72%, ${s.colorPaper});`,
+    `--accent:color-mix(in oklab, ${s.colorAccent} 16%, ${s.colorPaper});`,
+    `--accent-foreground:${s.colorInk};`,
+    `--border:color-mix(in oklab, ${s.colorInk} 24%, ${s.colorPaper});`,
+    `--input:var(--border);`,
+    `}`,
+  ].join("");
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SiteTheme />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>
   );
+}
+
+function SiteTheme() {
+  const { data: settings } = useSuspenseQuery(siteSettingsQuery);
+  const css = themeOverride(settings);
+  return css ? <style>{css}</style> : null;
 }
