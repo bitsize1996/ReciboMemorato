@@ -17,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { EventCard } from "./memories.index";
 import { listPublishedEvents } from "@/lib/gallery.functions";
+import { siteSettingsQuery } from "@/lib/site.functions";
+import { richText, type SiteSettings } from "@/lib/site-settings";
 
 const eventsQuery = queryOptions({
   queryKey: ["events"],
@@ -41,11 +43,13 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(eventsQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(eventsQuery),
+      context.queryClient.ensureQueryData(siteSettingsQuery),
+    ]),
   component: Index,
 });
-
-const messengerUrl = "https://m.me/";
 
 const services = [
   {
@@ -117,10 +121,20 @@ const faqs = [
   ],
 ];
 
-function MessageButton({ label = "Send us a message", light = false }: { label?: string; light?: boolean }) {
+function Rich({ text }: { text: string }) {
+  return (
+    <>
+      {richText(text).map((part, i) =>
+        part.em ? <em key={i}>{part.part}</em> : <span key={i}>{part.part}</span>,
+      )}
+    </>
+  );
+}
+
+function MessageButton({ url, label, light = false }: { url: string; label: string; light?: boolean }) {
   return (
     <Button asChild size="lg" variant={light ? "outline" : "default"}>
-      <a href={messengerUrl} target="_blank" rel="noreferrer">
+      <a href={url} target="_blank" rel="noreferrer">
         <MessageCircle aria-hidden="true" className="size-4" />
         {label}
         <ArrowUpRight aria-hidden="true" className="size-4" />
@@ -129,12 +143,12 @@ function MessageButton({ label = "Send us a message", light = false }: { label?:
   );
 }
 
-function BrandMark() {
+function BrandMark({ s }: { s: SiteSettings }) {
   return (
-    <a href="#top" className="brand-mark" aria-label="Recibo Memorato home">
-      <span>RECIBO</span>
-      <span>MEMORATO</span>
-      <small>by the bitsize sibs</small>
+    <a href="#top" className="brand-mark" aria-label={`${s.brandLine1} ${s.brandLine2} home`}>
+      <span>{s.brandLine1}</span>
+      <span>{s.brandLine2}</span>
+      <small>{s.brandSub}</small>
     </a>
   );
 }
@@ -153,33 +167,32 @@ function MemoryVisual({ type, label }: { type: string; label: string }) {
 
 function Index() {
   const { data: events } = useSuspenseQuery(eventsQuery);
+  const { data: s } = useSuspenseQuery(siteSettingsQuery);
 
   return (
     <main id="top" className="overflow-hidden bg-background text-foreground">
       <header className="site-header">
-        <BrandMark />
+        <BrandMark s={s} />
         <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
           <a href="#services">Services</a>
           <Link to="/memories">Memory archive</Link>
           <a href="#story">Our story</a>
           <a href="#faqs">FAQs</a>
         </nav>
-        <a className="header-message" href={messengerUrl} target="_blank" rel="noreferrer" aria-label="Message Recibo Memorato">
+        <a className="header-message" href={s.messengerUrl} target="_blank" rel="noreferrer" aria-label={`Message ${s.brandLine1} ${s.brandLine2}`}>
           <MessageCircle className="size-5" aria-hidden="true" />
         </a>
       </header>
 
       <section className="hero-section" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <p className="eyebrow">Photobooth &amp; keepsakes</p>
+          <p className="eyebrow">{s.heroEyebrow}</p>
           <h1 id="hero-title">
-            Your memories deserve more than a <em>camera roll.</em>
+            <Rich text={s.heroTitle} />
           </h1>
-          <p className="hero-lead">Turn your favorite moments into something you can actually keep.</p>
-          <p className="hero-description">
-            From receipt-inspired photobooths to high-angle shots, Sintra Board prints, and Original Instax prints — Recibo Memorato makes memories tangible.
-          </p>
-          <MessageButton />
+          <p className="hero-lead">{s.heroLead}</p>
+          <p className="hero-description">{s.heroDescription}</p>
+          <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
         </div>
 
         <div className="hero-art" aria-label="A collage of physical memory keepsakes">
@@ -189,7 +202,7 @@ function Index() {
             <p>the good days</p>
           </div>
           <div className="hero-receipt">
-            <div className="receipt-brand">RECIBO MEMORATO</div>
+            <div className="receipt-brand">{s.brandLine1} {s.brandLine2}</div>
             <p>MEMORY PROOF #0921</p>
             <MemoryVisual type="receipt" label="Receipt photo strip" />
             <div className="receipt-total"><span>MEMORIES</span><span>PRICELESS</span></div>
@@ -218,7 +231,7 @@ function Index() {
             <p>But some memories deserve more than being buried in your camera roll.</p>
           </div>
           <blockquote>“I was there. This happened.<br />And it meant something.”</blockquote>
-          <p className="problem-close">That's what Recibo Memorato is for.</p>
+          <p className="problem-close">That's what {s.brandLine1} {s.brandLine2} is for.</p>
         </div>
       </section>
 
@@ -229,10 +242,10 @@ function Index() {
             <h2>A photobooth experience made for memories worth keeping.</h2>
           </div>
           <div className="solution-text">
-            <p>Recibo Memorato brings together the fun of a photobooth with the feeling of receiving a little souvenir from a moment you never want to forget.</p>
+            <p>{s.brandLine1} {s.brandLine2} brings together the fun of a photobooth with the feeling of receiving a little souvenir from a moment you never want to forget.</p>
             <p>Whether it's a birthday, celebration, event, hangout, or simply a day worth remembering, we turn your moments into physical keepsakes.</p>
             <strong>Not just photos. Proofs of the moments you lived.</strong>
-            <MessageButton label="I want my memory proof" light />
+            <MessageButton url={s.messengerUrl} label="I want my memory proof" light />
           </div>
         </div>
       </section>
@@ -265,11 +278,11 @@ function Index() {
 
       <section id="story" className="story-section">
         <div className="founder-visual">
-          <MemoryVisual type="founders" label="The siblings behind Recibo Memorato" />
+          <MemoryVisual type="founders" label="The siblings behind the brand" />
           <span>THE BITSIZE SIBS</span>
         </div>
         <div className="story-copy">
-          <p className="eyebrow">Why Recibo Memorato?</p>
+          <p className="eyebrow">Why {s.brandLine1} {s.brandLine2}?</p>
           <h2>We believe memories shouldn't disappear into your gallery.</h2>
           <p>There's something different about holding a photo in your hands.</p>
           <ul>
@@ -319,13 +332,13 @@ function Index() {
         <div className="offer-copy">
           <p className="eyebrow">Your next memory</p>
           <h2>Make it one you can actually keep.</h2>
-          <p>Whether you're celebrating with friends, marking a milestone, or simply creating memories together, Recibo Memorato gives you something to take home.</p>
-          <MessageButton />
+          <p>Whether you're celebrating with friends, marking a milestone, or simply creating memories together, {s.brandLine1} {s.brandLine2} gives you something to take home.</p>
+          <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
         </div>
         <div className="offer-receipt">
-          <header><span>RECIBO MEMORATO</span><small>YOUR EXPERIENCE CAN INCLUDE</small></header>
+          <header><span>{s.brandLine1} {s.brandLine2}</span><small>YOUR EXPERIENCE CAN INCLUDE</small></header>
           {services.map((service) => <div key={service.title}><Check aria-hidden="true" /><span>{service.title}</span></div>)}
-          <footer><span>Because memories need proofs.</span><div className="barcode" /></footer>
+          <footer><span>{s.finalTagline}</span><div className="barcode" /></footer>
         </div>
       </section>
 
@@ -343,19 +356,19 @@ function Index() {
 
       <section className="final-section">
         <p className="eyebrow">One last reminder</p>
-        <h2>Don't let your favorite moments live only in your camera roll.</h2>
+        <h2><Rich text={s.finalTitle} /></h2>
         <div className="final-lines"><span>Print the laugh.</span><span>Keep the pose.</span><span>Save the little moment.</span><span>Take home the proof.</span></div>
-        <p className="final-tagline">Because memories need proofs.</p>
-        <MessageButton />
+        <p className="final-tagline">{s.finalTagline}</p>
+        <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
         <small>Let's make something worth keeping.</small>
       </section>
 
       <footer className="site-footer" id="contact">
-        <BrandMark />
+        <BrandMark s={s} />
         <p>Photobooth · Receipt Photobooth · High Angle · Sintra Board · Original Instax Printing</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><a href="#faqs">FAQs</a><a href={messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
-        <a href={messengerUrl} className="footer-social" target="_blank" rel="noreferrer" aria-label="Find Recibo Memorato on social media"><Instagram aria-hidden="true" /></a>
-        <small>© 2026 Recibo Memorato. Made for moments worth keeping.</small>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><a href="#faqs">FAQs</a><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
+        <a href={s.messengerUrl} className="footer-social" target="_blank" rel="noreferrer" aria-label="Find us on social media"><Instagram aria-hidden="true" /></a>
+        <small>© 2026 {s.brandLine1} {s.brandLine2}. Made for moments worth keeping.</small>
       </footer>
     </main>
   );

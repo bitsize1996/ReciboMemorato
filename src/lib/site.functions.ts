@@ -1,3 +1,4 @@
+import { queryOptions } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -113,3 +114,8 @@ export const saveSiteSettings = createServerFn({ method: "POST" })
     if (error) throw new Error("Could not save settings");
     return { ok: true };
   });
+
+export const siteSettingsQuery = queryOptions({
+  queryKey: ["site-settings"],
+  queryFn: () => getSiteSettings(),
+});
