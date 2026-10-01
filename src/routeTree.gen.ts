@@ -19,6 +19,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
 import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminCalendarRouteImport } from './routes/_authenticated/admin.calendar'
 import { Route as AuthenticatedAdminCustomizeRouteImport } from './routes/_authenticated/admin.customize'
 import { Route as AuthenticatedAdminEventsRouteImport } from './routes/_authenticated/admin.events'
 import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/admin.expenses'
@@ -30,6 +31,7 @@ import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/me
 import { Route as AuthenticatedAdminGalleryEventIdRouteImport } from './routes/_authenticated/admin.gallery.$eventId'
 import { Route as AuthenticatedAdminSalesIndexRouteImport } from './routes/_authenticated/admin.sales.index'
 import { Route as AuthenticatedAdminSalesSaleIdRouteImport } from './routes/_authenticated/admin.sales.$saleId'
+import { Route as AuthenticatedAdminSalesSaleIdInvoiceRouteImport } from './routes/_authenticated/admin.sales.$saleId.invoice'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -81,6 +83,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminCalendarRoute =
+  AuthenticatedAdminCalendarRouteImport.update({
+    id: '/calendar',
+    path: '/calendar',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCustomizeRoute =
   AuthenticatedAdminCustomizeRouteImport.update({
     id: '/customize',
@@ -146,6 +154,12 @@ const AuthenticatedAdminSalesSaleIdRoute =
     path: '/sales/$saleId',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSalesSaleIdInvoiceRoute =
+  AuthenticatedAdminSalesSaleIdInvoiceRouteImport.update({
+    id: '/invoice',
+    path: '/invoice',
+    getParentRoute: () => AuthenticatedAdminSalesSaleIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -156,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
+  '/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -166,8 +181,9 @@ export interface FileRoutesByFullPath {
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
-  '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRoute
+  '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
   '/admin/sales/': typeof AuthenticatedAdminSalesIndexRoute
+  '/admin/sales/$saleId/invoice': typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -177,6 +193,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories': typeof MemoriesIndexRoute
+  '/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -187,8 +204,9 @@ export interface FileRoutesByTo {
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
-  '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRoute
+  '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
   '/admin/sales': typeof AuthenticatedAdminSalesIndexRoute
+  '/admin/sales/$saleId/invoice': typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -201,6 +219,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
+  '/_authenticated/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/_authenticated/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/_authenticated/admin/events': typeof AuthenticatedAdminEventsRoute
   '/_authenticated/admin/expenses': typeof AuthenticatedAdminExpensesRoute
@@ -211,8 +230,9 @@ export interface FileRoutesById {
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
-  '/_authenticated/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRoute
+  '/_authenticated/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
   '/_authenticated/admin/sales/': typeof AuthenticatedAdminSalesIndexRoute
+  '/_authenticated/admin/sales/$saleId/invoice': typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -225,6 +245,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/memories/$slug'
     | '/memories/'
+    | '/admin/calendar'
     | '/admin/customize'
     | '/admin/events'
     | '/admin/expenses'
@@ -237,6 +258,7 @@ export interface FileRouteTypes {
     | '/admin/gallery/$eventId'
     | '/admin/sales/$saleId'
     | '/admin/sales/'
+    | '/admin/sales/$saleId/invoice'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -246,6 +268,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/memories/$slug'
     | '/memories'
+    | '/admin/calendar'
     | '/admin/customize'
     | '/admin/events'
     | '/admin/expenses'
@@ -258,6 +281,7 @@ export interface FileRouteTypes {
     | '/admin/gallery/$eventId'
     | '/admin/sales/$saleId'
     | '/admin/sales'
+    | '/admin/sales/$saleId/invoice'
   id:
     | '__root__'
     | '/'
@@ -269,6 +293,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/memories/$slug'
     | '/memories/'
+    | '/_authenticated/admin/calendar'
     | '/_authenticated/admin/customize'
     | '/_authenticated/admin/events'
     | '/_authenticated/admin/expenses'
@@ -281,6 +306,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/gallery/$eventId'
     | '/_authenticated/admin/sales/$saleId'
     | '/_authenticated/admin/sales/'
+    | '/_authenticated/admin/sales/$saleId/invoice'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -367,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/calendar': {
+      id: '/_authenticated/admin/calendar'
+      path: '/calendar'
+      fullPath: '/admin/calendar'
+      preLoaderRoute: typeof AuthenticatedAdminCalendarRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/customize': {
       id: '/_authenticated/admin/customize'
       path: '/customize'
@@ -444,10 +477,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSalesSaleIdRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sales/$saleId/invoice': {
+      id: '/_authenticated/admin/sales/$saleId/invoice'
+      path: '/invoice'
+      fullPath: '/admin/sales/$saleId/invoice'
+      preLoaderRoute: typeof AuthenticatedAdminSalesSaleIdInvoiceRouteImport
+      parentRoute: typeof AuthenticatedAdminSalesSaleIdRoute
+    }
   }
 }
 
+interface AuthenticatedAdminSalesSaleIdRouteChildren {
+  AuthenticatedAdminSalesSaleIdInvoiceRoute: typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
+}
+
+const AuthenticatedAdminSalesSaleIdRouteChildren: AuthenticatedAdminSalesSaleIdRouteChildren =
+  {
+    AuthenticatedAdminSalesSaleIdInvoiceRoute:
+      AuthenticatedAdminSalesSaleIdInvoiceRoute,
+  }
+
+const AuthenticatedAdminSalesSaleIdRouteWithChildren =
+  AuthenticatedAdminSalesSaleIdRoute._addFileChildren(
+    AuthenticatedAdminSalesSaleIdRouteChildren,
+  )
+
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminCalendarRoute: typeof AuthenticatedAdminCalendarRoute
   AuthenticatedAdminCustomizeRoute: typeof AuthenticatedAdminCustomizeRoute
   AuthenticatedAdminEventsRoute: typeof AuthenticatedAdminEventsRoute
   AuthenticatedAdminExpensesRoute: typeof AuthenticatedAdminExpensesRoute
@@ -457,11 +513,12 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminGalleryEventIdRoute: typeof AuthenticatedAdminGalleryEventIdRoute
-  AuthenticatedAdminSalesSaleIdRoute: typeof AuthenticatedAdminSalesSaleIdRoute
+  AuthenticatedAdminSalesSaleIdRoute: typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
   AuthenticatedAdminSalesIndexRoute: typeof AuthenticatedAdminSalesIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminCalendarRoute: AuthenticatedAdminCalendarRoute,
   AuthenticatedAdminCustomizeRoute: AuthenticatedAdminCustomizeRoute,
   AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
   AuthenticatedAdminExpensesRoute: AuthenticatedAdminExpensesRoute,
@@ -471,7 +528,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminGalleryEventIdRoute: AuthenticatedAdminGalleryEventIdRoute,
-  AuthenticatedAdminSalesSaleIdRoute: AuthenticatedAdminSalesSaleIdRoute,
+  AuthenticatedAdminSalesSaleIdRoute:
+    AuthenticatedAdminSalesSaleIdRouteWithChildren,
   AuthenticatedAdminSalesIndexRoute: AuthenticatedAdminSalesIndexRoute,
 }
 
