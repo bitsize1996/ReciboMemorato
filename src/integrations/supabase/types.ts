@@ -363,11 +363,14 @@ export type Database = {
           booking_date: string
           created_at: string
           customer_contact: string | null
+          customer_email: string | null
           customer_name: string
           discount: number
           event_date: string | null
           event_id: string | null
           event_name: string | null
+          event_time: string | null
+          gcal_event_id: string | null
           id: string
           notes: string | null
           package_id: string | null
@@ -383,11 +386,14 @@ export type Database = {
           booking_date?: string
           created_at?: string
           customer_contact?: string | null
+          customer_email?: string | null
           customer_name: string
           discount?: number
           event_date?: string | null
           event_id?: string | null
           event_name?: string | null
+          event_time?: string | null
+          gcal_event_id?: string | null
           id?: string
           notes?: string | null
           package_id?: string | null
@@ -403,11 +409,14 @@ export type Database = {
           booking_date?: string
           created_at?: string
           customer_contact?: string | null
+          customer_email?: string | null
           customer_name?: string
           discount?: number
           event_date?: string | null
           event_id?: string | null
           event_name?: string | null
+          event_time?: string | null
+          gcal_event_id?: string | null
           id?: string
           notes?: string | null
           package_id?: string | null
