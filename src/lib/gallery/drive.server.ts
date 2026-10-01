@@ -11,6 +11,10 @@ function gatewayHeaders(): HeadersInit {
   };
 }
 
+function safeId(value: string): string {
+  return value.replace(/['\\]/g, "");
+}
+
 export interface DriveFile {
   id: string;
   name: string;
@@ -20,7 +24,7 @@ export interface DriveFile {
 
 /** Streams the original file bytes through the gateway (used by the media proxy). */
 export async function fetchDriveFile(fileId: string): Promise<Response> {
-  return fetch(`${GATEWAY}/files/${encodeURIComponent(fileId)}?alt=media`, {
+  return fetch(`${GATEWAY}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, {
     headers: gatewayHeaders(),
   });
 }
@@ -35,7 +39,9 @@ export async function listAllDriveFiles(folderId: string): Promise<DriveFile[]> 
 
   for (let page = 0; page < 40; page += 1) {
     const params = new URLSearchParams({
-      q: `'${folderId}' in parents and trashed = false and mimeType contains 'image/'`,
+      q: `'${safeId(folderId)}' in parents and trashed = false and mimeType contains 'image/'`,
+      supportsAllDrives: "true",
+      includeItemsFromAllDrives: "true",
       fields: "nextPageToken, files(id, name, mimeType, imageMediaMetadata(width, height))",
       pageSize: "200",
       orderBy: "name",
@@ -48,7 +54,7 @@ export async function listAllDriveFiles(folderId: string): Promise<DriveFile[]> 
     if (!response.ok) {
       const body = await response.text();
       console.error(`Drive listing failed [${response.status}]: ${body}`);
-      throw new Error("drive_unavailable");
+      throw new Error(`drive_error_${response.status}`);
     }
 
     const payload = (await response.json()) as {
@@ -61,4 +67,40 @@ export async function listAllDriveFiles(folderId: string): Promise<DriveFile[]> 
   }
 
   return files;
+}
+
+/** Lists the sub-folders (id + name) directly inside a Drive folder. */
+export async function listDriveSubfolders(
+  folderId: string,
+): Promise<{ id: string; name: string }[]> {
+  const folders: { id: string; name: string }[] = [];
+  let pageToken: string | null = null;
+
+  for (let page = 0; page < 10; page += 1) {
+    const params = new URLSearchParams({
+      q: `'${safeId(folderId)}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'`,
+      fields: "nextPageToken, files(id, name)",
+      pageSize: "100",
+      supportsAllDrives: "true",
+      includeItemsFromAllDrives: "true",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const response = await fetch(`${GATEWAY}/files?${params.toString()}`, {
+      headers: gatewayHeaders(),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      console.error(`Drive folder listing failed [${response.status}]: ${body}`);
+      throw new Error(`drive_error_${response.status}`);
+    }
+    const payload = (await response.json()) as {
+      files?: { id: string; name: string }[];
+      nextPageToken?: string | null;
+    };
+    folders.push(...(payload.files ?? []));
+    pageToken = payload.nextPageToken ?? null;
+    if (!pageToken) break;
+  }
+  return folders;
 }

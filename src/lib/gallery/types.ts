@@ -1,9 +1,9 @@
 export type MediaCategory = "digitals" | "gif" | "singles";
 
 export const MEDIA_CATEGORIES: { key: MediaCategory; label: string }[] = [
-  { key: "digitals", label: "Digitals" },
-  { key: "gif", label: "GIF" },
-  { key: "singles", label: "Singles" },
+  { key: "gif", label: "Animated" },
+  { key: "digitals", label: "Prints" },
+  { key: "singles", label: "Single Photos" },
 ];
 
 export interface MediaItem {
