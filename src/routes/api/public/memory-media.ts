@@ -20,6 +20,7 @@ export const Route = createFileRoute("/api/public/memory-media")({
           .select("id, name, drive_file_id, full_url, mime_type, source, download_enabled")
           .eq("id", id)
           .eq("published", true)
+          .neq("source", "sample")
           .maybeSingle();
 
         if (!media) return new Response("Not found", { status: 404 });
