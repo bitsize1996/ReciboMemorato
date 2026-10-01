@@ -17,15 +17,37 @@ export function MediaGrid({ items }: { items: MediaItem[] }) {
             onClick={() => setOpenIndex(index)}
             aria-label={`Open ${item.name}`}
           >
-            <img
-              src={item.thumbUrl}
-              alt={item.name}
-              loading="lazy"
-              decoding="async"
-              width={item.width ?? undefined}
-              height={item.height ?? undefined}
-            />
-            {item.isGif ? <span className="media-badge">GIF</span> : null}
+            {item.isVideo ? (
+              <video
+                src={`${item.fullUrl}#t=0.1`}
+                muted
+                playsInline
+                preload="metadata"
+                aria-label={item.name}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                  aspectRatio: item.width && item.height ? `${item.width} / ${item.height}` : "3 / 4",
+                  objectFit: "cover",
+                  pointerEvents: "none",
+                }}
+              />
+            ) : (
+              <img
+                src={item.thumbUrl}
+                alt={item.name}
+                loading="lazy"
+                decoding="async"
+                width={item.width ?? undefined}
+                height={item.height ?? undefined}
+              />
+            )}
+            {item.isVideo ? (
+              <span className="media-badge">VIDEO</span>
+            ) : item.isGif ? (
+              <span className="media-badge">GIF</span>
+            ) : null}
           </button>
         ))}
       </div>

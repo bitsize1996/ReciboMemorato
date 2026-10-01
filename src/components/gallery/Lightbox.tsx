@@ -62,18 +62,18 @@ export function Lightbox({ items, index, onIndexChange, onClose }: LightboxProps
       <div className="lightbox-bar">
         <span>
           {index + 1} / {items.length}
-          {item.isGif ? " · GIF" : ""}
+          {item.isVideo ? " · VIDEO" : item.isGif ? " · GIF" : ""}
         </span>
         <div>
           {item.downloadUrl ? (
             <a
               href={item.downloadUrl}
               download={item.name}
-              aria-label={item.isGif ? "Download this GIF" : "Download this photo"}
+              aria-label={item.isVideo ? "Download this video" : item.isGif ? "Download this GIF" : "Download this photo"}
             >
               <Download aria-hidden="true" />
               <span className="lightbox-download-label">
-                {item.isGif ? "Download GIF" : "Download photo"}
+                {item.isVideo ? "Download video" : item.isGif ? "Download GIF" : "Download photo"}
               </span>
             </a>
           ) : null}
@@ -93,7 +93,19 @@ export function Lightbox({ items, index, onIndexChange, onClose }: LightboxProps
       </button>
 
       <figure className="lightbox-stage">
-        <img src={item.fullUrl} alt={item.name} />
+        {item.isVideo ? (
+          <video
+            key={item.id}
+            src={item.fullUrl}
+            controls
+            autoPlay
+            loop
+            playsInline
+            style={{ maxWidth: "100%", maxHeight: "80svh" }}
+          />
+        ) : (
+          <img src={item.fullUrl} alt={item.name} />
+        )}
         <figcaption>{item.name}</figcaption>
       </figure>
 
