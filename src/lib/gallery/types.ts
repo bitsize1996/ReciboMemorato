@@ -16,6 +16,7 @@ export interface MediaItem {
   width: number | null;
   height: number | null;
   isGif: boolean;
+  isVideo: boolean;
 }
 
 export interface MediaPage {

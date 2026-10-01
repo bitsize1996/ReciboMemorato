@@ -20,12 +20,15 @@ export interface DriveFile {
   name: string;
   mimeType: string;
   imageMediaMetadata?: { width?: number; height?: number };
+  videoMediaMetadata?: { width?: number; height?: number };
 }
 
 /** Streams the original file bytes through the gateway (used by the media proxy). */
-export async function fetchDriveFile(fileId: string): Promise<Response> {
+export async function fetchDriveFile(fileId: string, range?: string | null): Promise<Response> {
+  const headers = new Headers(gatewayHeaders());
+  if (range) headers.set("Range", range); // lets videos start fast and seek
   return fetch(`${GATEWAY}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, {
-    headers: gatewayHeaders(),
+    headers,
   });
 }
 
@@ -33,16 +36,21 @@ export async function fetchDriveFile(fileId: string): Promise<Response> {
  * Lists every image/GIF in a Drive folder. Used only by the owner-side sync,
  * never by public pages — nothing here reaches the browser.
  */
-export async function listAllDriveFiles(folderId: string): Promise<DriveFile[]> {
+export async function listAllDriveFiles(
+  folderId: string,
+  options: { includeVideos?: boolean } = {},
+): Promise<DriveFile[]> {
   const files: DriveFile[] = [];
   let pageToken: string | null = null;
 
   for (let page = 0; page < 40; page += 1) {
     const params = new URLSearchParams({
-      q: `'${safeId(folderId)}' in parents and trashed = false and mimeType contains 'image/'`,
+      q: `'${safeId(folderId)}' in parents and trashed = false and (mimeType contains 'image/'${
+        options.includeVideos ? " or mimeType contains 'video/'" : ""
+      })`,
       supportsAllDrives: "true",
       includeItemsFromAllDrives: "true",
-      fields: "nextPageToken, files(id, name, mimeType, imageMediaMetadata(width, height))",
+      fields: "nextPageToken, files(id, name, mimeType, imageMediaMetadata(width, height), videoMediaMetadata(width, height))",
       pageSize: "200",
       orderBy: "name",
     });
@@ -103,4 +111,26 @@ export async function listDriveSubfolders(
     if (!pageToken) break;
   }
   return folders;
+}
+
+/**
+ * Lists a few non-image, non-folder files in a Drive folder (videos, PDFs…).
+ * Used only to explain why a folder that has files shows no photos.
+ */
+export async function listOtherDriveFiles(
+  folderId: string,
+): Promise<{ name: string; mimeType: string }[]> {
+  const params = new URLSearchParams({
+    q: `'${safeId(folderId)}' in parents and trashed = false and not mimeType contains 'image/' and mimeType != 'application/vnd.google-apps.folder'`,
+    fields: "files(name, mimeType)",
+    pageSize: "20",
+    supportsAllDrives: "true",
+    includeItemsFromAllDrives: "true",
+  });
+  const response = await fetch(`${GATEWAY}/files?${params.toString()}`, {
+    headers: gatewayHeaders(),
+  });
+  if (!response.ok) return [];
+  const payload = (await response.json()) as { files?: { name: string; mimeType: string }[] };
+  return payload.files ?? [];
 }
