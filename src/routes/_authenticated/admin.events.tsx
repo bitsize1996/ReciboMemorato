@@ -34,7 +34,6 @@ const EMPTY: EventInput = {
   location: "",
   cover_url: "",
   drive_folder_id: "",
-  print_folder_id: "",
   digitals_folder_id: "",
   gif_folder_id: "",
   singles_folder_id: "",
@@ -44,7 +43,6 @@ const EMPTY: EventInput = {
 
 const FOLDER_FIELDS: [keyof EventInput, string][] = [
   ["drive_folder_id", "Event folder link or ID"],
-  ["print_folder_id", "PRINT folder link or ID"],
   ["digitals_folder_id", "DIGITALS folder link or ID"],
   ["gif_folder_id", "GIF folder link or ID"],
   ["singles_folder_id", "SINGLES folder link or ID"],
@@ -81,7 +79,6 @@ function AdminEventsPage() {
         data: {
           ...input,
           drive_folder_id: extractFolderId(input.drive_folder_id ?? ""),
-          print_folder_id: extractFolderId(input.print_folder_id ?? ""),
           digitals_folder_id: extractFolderId(input.digitals_folder_id ?? ""),
           gif_folder_id: extractFolderId(input.gif_folder_id ?? ""),
           singles_folder_id: extractFolderId(input.singles_folder_id ?? ""),

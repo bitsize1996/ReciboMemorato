@@ -34,14 +34,12 @@ const FOLDER_LABEL: Record<MediaCategory, string> = {
   digitals: "Digitals folder",
   singles: "Singles folder",
   gif: "GIF folder",
-  print: "Print folder",
 };
 
 const FOLDER_COLUMN: Record<MediaCategory, string> = {
   digitals: "digitals_folder_id",
   singles: "singles_folder_id",
   gif: "gif_folder_id",
-  print: "print_folder_id",
 };
 
 function ManageGalleryPage() {
