@@ -42,14 +42,15 @@ const EMPTY: EventInput = {
 };
 
 const FOLDER_FIELDS: [keyof EventInput, string][] = [
-  ["drive_folder_id", "Event folder link or ID"],
-  ["digitals_folder_id", "DIGITALS folder link or ID"],
-  ["gif_folder_id", "GIF folder link or ID"],
-  ["singles_folder_id", "SINGLES folder link or ID"],
+  ["drive_folder_id", "MAIN EVENT folder link (we find Animated, Prints and Single Photos inside it)"],
+  ["gif_folder_id", "ANIMATED folder link (optional)"],
+  ["digitals_folder_id", "PRINTS folder link (optional)"],
+  ["singles_folder_id", "SINGLE PHOTOS folder link (optional)"],
 ];
 
 function extractFolderId(value: string): string {
-  const match = value.match(/folders\/([A-Za-z0-9_-]+)/);
+  const match =
+    value.match(/folders\/([A-Za-z0-9_-]+)/) ?? value.match(/[?&]id=([A-Za-z0-9_-]+)/);
   return match?.[1] ?? value.trim();
 }
 

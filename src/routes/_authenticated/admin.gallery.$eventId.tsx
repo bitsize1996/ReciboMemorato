@@ -31,9 +31,9 @@ export const Route = createFileRoute("/_authenticated/admin/gallery/$eventId")({
 });
 
 const FOLDER_LABEL: Record<MediaCategory, string> = {
-  digitals: "Digitals folder",
-  singles: "Singles folder",
-  gif: "GIF folder",
+  gif: "Animated folder",
+  digitals: "Prints folder",
+  singles: "Single Photos folder",
 };
 
 const FOLDER_COLUMN: Record<MediaCategory, string> = {
@@ -45,7 +45,7 @@ const FOLDER_COLUMN: Record<MediaCategory, string> = {
 function ManageGalleryPage() {
   const { eventId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [category, setCategory] = useState<MediaCategory>("digitals");
+  const [category, setCategory] = useState<MediaCategory>("gif");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -69,7 +69,9 @@ function ManageGalleryPage() {
     mutationFn: () => syncEventMedia({ data: { eventId } }),
     onSuccess: (result) => {
       setNotice(
-        result.added === 0
+        result.foldersFound === 0
+          ? "We couldn't find folders named Animated, Prints or Single Photos in that Google Drive folder. Check the folder names, or use \"Edit folder links\" to paste each folder's link."
+          : result.added === 0
           ? "No new files found."
           : `${result.added} new file${result.added === 1 ? "" : "s"} added — all still hidden until you publish them.`,
       );
@@ -146,6 +148,7 @@ function ManageGalleryPage() {
 
   const { event, stats, driveConnected, samplesTotal } = overview.data as any;
   const rows = media.data ?? [];
+  const categoryLabel = MEDIA_CATEGORIES.find((tab) => tab.key === category)?.label ?? category;
   const allSelected = rows.length > 0 && rows.every((row: any) => selected.has(row.id));
 
   const toggleOne = (id: string) => {
@@ -338,14 +341,14 @@ function ManageGalleryPage() {
               if (rows.length === 0) return;
               if (
                 window.confirm(
-                  `Publish all ${rows.length} ${category.toUpperCase()} files?`,
+                  `Publish all ${rows.length} ${categoryLabel} files?`,
                 )
               ) {
                 categoryFlags.mutate({ published: true });
               }
             }}
           >
-            Publish all in {category}
+            Publish all in {categoryLabel}
           </button>
           <button
             type="button"
@@ -362,14 +365,14 @@ function ManageGalleryPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  `Remove ALL ${rows.length} ${category.toUpperCase()} files from the gallery?\n\nThe original files in Google Drive are not touched. This cannot be undone.`,
+                  `Remove ALL ${rows.length} ${categoryLabel} files from the gallery?\n\nThe original files in Google Drive are not touched. This cannot be undone.`,
                 )
               ) {
                 removeCategory.mutate();
               }
             }}
           >
-            Remove all in {category}
+            Remove all in {categoryLabel}
           </button>
         </div>
 
@@ -396,7 +399,7 @@ function ManageGalleryPage() {
               <div className="admin-media-meta">
                 <strong>{row.name}</strong>
                 <span>
-                  {category.toUpperCase()}
+                  {categoryLabel}
                   {row.is_gif ? " · GIF" : ""}
                   {row.source === "sample" ? " · sample" : ""}
                 </span>
