@@ -21,6 +21,28 @@ function categoryOf(input: unknown): MediaCategory {
   return input as MediaCategory;
 }
 
+// Drive sub-folder names (lower-case) that belong to each tab.
+const FOLDER_ALIASES: Record<MediaCategory, string[]> = {
+  gif: ["animated", "animation", "animations", "gif", "gifs"],
+  digitals: ["prints", "print", "digitals", "digital"],
+  singles: ["single photos", "single photo", "singles", "single"],
+};
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function driveErrorMessage(e: unknown): string {
+  const code = e instanceof Error ? e.message : "";
+  if (code === "drive_error_401") {
+    return "The Google Drive connection needs to be renewed. Reconnect Google Drive, then try again.";
+  }
+  if (["drive_error_400", "drive_error_403", "drive_error_404"].includes(code)) {
+    return "Google Drive can't open that folder. Make sure the link is for a folder in the Google account connected to this site (or shared with it), then try again.";
+  }
+  return "Could not reach Google Drive. Please try again shortly.";
+}
+
 const FOLDER_COLUMN: Record<MediaCategory, string> = {
   digitals: "digitals_folder_id",
   gif: "gif_folder_id",
@@ -112,7 +134,9 @@ export const syncEventMedia = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !event) throw new Error("Event not found");
 
-    const { isDriveConfigured, listAllDriveFiles } = await import("./gallery/drive.server");
+    const { isDriveConfigured, listAllDriveFiles, listDriveSubfolders } = await import(
+      "./gallery/drive.server"
+    );
     const driveConnected = isDriveConfigured();
     if (!driveConnected) {
       throw new Error("Google Drive isn't connected yet, so there is nothing to check.");
@@ -128,16 +152,48 @@ export const syncEventMedia = createServerFn({ method: "POST" })
 
     const inserts: Record<string, unknown>[] = [];
 
+    const folderIds = {} as Record<MediaCategory, string | null>;
     for (const category of CATEGORIES) {
-      const folderId = event[FOLDER_COLUMN[category]] as string | null;
+      folderIds[category] = (event[FOLDER_COLUMN[category]] as string | null) || null;
+    }
 
+    // Only the main event folder was given: find the Animated / Prints /
+    // Single Photos folders inside it and remember them.
+    const mainFolder = (event.drive_folder_id as string | null) || null;
+    if (mainFolder && CATEGORIES.some((category) => !folderIds[category])) {
+      let subfolders;
+      try {
+        subfolders = await listDriveSubfolders(mainFolder);
+      } catch (e) {
+        throw new Error(driveErrorMessage(e));
+      }
+      const learned: Record<string, string> = {};
+      for (const category of CATEGORIES) {
+        if (folderIds[category]) continue;
+        const match = subfolders.find((folder) =>
+          FOLDER_ALIASES[category].includes(normalizeName(folder.name)),
+        );
+        if (match) {
+          folderIds[category] = match.id;
+          learned[FOLDER_COLUMN[category]] = match.id;
+        }
+      }
+      if (Object.keys(learned).length > 0) {
+        await (context.supabase as any).from("events").update(learned).eq("id", data.eventId);
+      }
+    }
+
+    const foldersFound = CATEGORIES.filter((category) => folderIds[category]).length;
+
+    for (const category of CATEGORIES) {
+      const folderId = folderIds[category];
       if (!folderId) continue;
 
       let files;
       try {
         files = await listAllDriveFiles(folderId);
-      } catch {
-        throw new Error("Could not reach Google Drive. Please try again shortly.");
+      } catch (e) {
+        throw new Error(driveErrorMessage(e));
       }
       for (const file of files) {
         if (seen.has(`${category}:${file.id}`)) continue;
@@ -164,7 +220,7 @@ export const syncEventMedia = createServerFn({ method: "POST" })
       }
     }
 
-    return { added: inserts.length, driveConnected };
+    return { added: inserts.length, driveConnected, foldersFound };
   });
 
 export const setMediaFlags = createServerFn({ method: "POST" })
