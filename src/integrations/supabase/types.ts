@@ -435,6 +435,63 @@ export type Database = {
           },
         ]
       }
+      site_settings: {
+        Row: {
+          brand_line1: string
+          brand_line2: string
+          brand_sub: string
+          color_accent: string
+          color_ink: string
+          color_paper: string
+          cta_label: string
+          final_tagline: string
+          final_title: string
+          hero_description: string
+          hero_eyebrow: string
+          hero_lead: string
+          hero_title: string
+          id: number
+          messenger_url: string
+          updated_at: string
+        }
+        Insert: {
+          brand_line1?: string
+          brand_line2?: string
+          brand_sub?: string
+          color_accent?: string
+          color_ink?: string
+          color_paper?: string
+          cta_label?: string
+          final_tagline?: string
+          final_title?: string
+          hero_description?: string
+          hero_eyebrow?: string
+          hero_lead?: string
+          hero_title?: string
+          id?: number
+          messenger_url?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_line1?: string
+          brand_line2?: string
+          brand_sub?: string
+          color_accent?: string
+          color_ink?: string
+          color_paper?: string
+          cta_label?: string
+          final_tagline?: string
+          final_title?: string
+          hero_description?: string
+          hero_eyebrow?: string
+          hero_lead?: string
+          hero_title?: string
+          id?: number
+          messenger_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
