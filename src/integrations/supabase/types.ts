@@ -17,6 +17,7 @@ export type Database = {
       events: {
         Row: {
           archived: boolean
+          category_id: string | null
           cover_url: string | null
           created_at: string
           digitals_enabled: boolean
@@ -39,6 +40,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          category_id?: string | null
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -61,6 +63,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          category_id?: string | null
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -79,6 +82,30 @@ export type Database = {
           singles_folder_id?: string | null
           slug?: string
           sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      event_categories: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          created_at?: string
           updated_at?: string
         }
         Relationships: []

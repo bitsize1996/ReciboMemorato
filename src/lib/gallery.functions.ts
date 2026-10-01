@@ -6,7 +6,7 @@ const CATEGORIES = ["digitals", "gif", "singles"] as const;
 const PAGE_SIZE = 24;
 
 const EVENT_FIELDS =
-  "id, slug, name, event_date, location, cover_url, digitals_enabled, gif_enabled, singles_enabled";
+  "id, slug, name, event_date, location, cover_url, category_id, digitals_enabled, gif_enabled, singles_enabled";
 
 interface EventRowLite {
   id: string;
@@ -15,6 +15,7 @@ interface EventRowLite {
   event_date: string | null;
   location: string | null;
   cover_url: string | null;
+  category_id: string | null;
   digitals_enabled: boolean;
   gif_enabled: boolean;
   singles_enabled: boolean;
@@ -33,6 +34,7 @@ function toGalleryEvent(row: EventRowLite): GalleryEvent {
     eventDate: row.event_date,
     location: row.location,
     coverUrl: row.cover_url,
+    categoryId: row.category_id,
     isSample: false,
     categories: CATEGORIES.filter((key) => flags[key]),
   };

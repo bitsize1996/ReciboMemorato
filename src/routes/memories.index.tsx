@@ -1,8 +1,10 @@
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
+import { useState } from "react";
 
 import { listPublishedEvents } from "@/lib/gallery.functions";
+import { listEventCategories } from "@/lib/events.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import type { SiteSettings } from "@/lib/site-settings";
 import { formatEventDate, formatReceiptDate } from "@/lib/gallery/types";
@@ -90,11 +92,15 @@ function ArchiveHeader({ s }: { s: SiteSettings }) {
 function ArchivePage() {
   const { data: events } = useSuspenseQuery(eventsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
+  const { data: categories } = useQuery({ queryKey: ["event-categories"], queryFn: () => listEventCategories() });
+  const [categoryId, setCategoryId] = useState<string>("");
+  const filteredEvents = categoryId ? events.filter((event) => event.categoryId === categoryId) : events;
 
   return (
     <main className="archive-page">
       <ArchiveHeader s={s} />
-      {events.length === 0 ? (
+      {categories?.length ? <div className="category-tabs" role="tablist" aria-label="Event categories"><button type="button" className={!categoryId ? "is-active" : undefined} onClick={() => setCategoryId("")}>All</button>{categories.map((category: any) => <button type="button" key={category.id} className={categoryId === category.id ? "is-active" : undefined} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div> : null}
+      {filteredEvents.length === 0 ? (
         <div className="gallery-state">
           <p className="eyebrow">Coming soon</p>
           <h3>Our first memories are on their way.</h3>
@@ -102,7 +108,7 @@ function ArchivePage() {
         </div>
       ) : (
         <div className="event-grid">
-          {events.map((event) => (
+          {filteredEvents.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
         </div>
