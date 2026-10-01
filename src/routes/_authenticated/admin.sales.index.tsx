@@ -101,7 +101,7 @@ function SaleForm({ onDone }: { onDone: () => void }) {
   const packages = usePackages();
   const materials = useMaterials();
   const [f, setF] = useState({
-    customer_name: "", customer_contact: "", event_name: "", event_date: "",
+    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_date: "",
     booking_date: new Date().toISOString().slice(0, 10), package_id: "", quantity: "1",
     selling_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "",
   });
@@ -129,6 +129,7 @@ function SaleForm({ onDone }: { onDone: () => void }) {
     const p = packages.data?.find((x) => x.id === f.package_id);
     const { data, error } = await supabase.from("sales").insert({
       customer_name: f.customer_name.trim(), customer_contact: f.customer_contact || null,
+      customer_email: f.customer_email.trim() || null, event_time: f.event_time || null,
       event_name: f.event_name || null, event_date: f.event_date || null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
       selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: n(f.amount_paid),
@@ -143,6 +144,7 @@ function SaleForm({ onDone }: { onDone: () => void }) {
       })));
       if (e2) { setBusy(false); return setErr(e2.message); }
     }
+    if (f.event_date) await syncSaleToGoogle({ data: { saleId: data.id } }).catch(() => null);
     qc.invalidateQueries({ queryKey: ["biz"] });
     onDone();
     navigate({ to: "/admin/sales/$saleId", params: { saleId: data.id } });
@@ -154,8 +156,10 @@ function SaleForm({ onDone }: { onDone: () => void }) {
       {err && <p className="adm-error adm-wide">{err}</p>}
       <label>Customer name<input required value={f.customer_name} onChange={(e) => set("customer_name", e.target.value)} /></label>
       <label>Customer contact<input value={f.customer_contact} onChange={(e) => set("customer_contact", e.target.value)} /></label>
+      <label>Customer email<input type="email" value={f.customer_email} onChange={(e) => set("customer_email", e.target.value)} /></label>
       <label>Event name<input value={f.event_name} onChange={(e) => set("event_name", e.target.value)} /></label>
       <label>Event date<input type="date" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} /></label>
+      <label>Event start time<input type="time" value={f.event_time} onChange={(e) => set("event_time", e.target.value)} /></label>
       <label>Booking date<input type="date" required value={f.booking_date} onChange={(e) => set("booking_date", e.target.value)} /></label>
       <label>Package
         <select value={f.package_id} onChange={(e) => pickPackage(e.target.value)}>
