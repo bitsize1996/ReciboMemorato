@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { MediaCategory } from "./gallery/types";
 
-const CATEGORIES = ["print", "digitals", "gif", "singles"] as const;
+const CATEGORIES = ["digitals", "gif", "singles"] as const;
 
 type Ctx = { supabase: any; userId: string };
 
@@ -22,7 +22,6 @@ function categoryOf(input: unknown): MediaCategory {
 }
 
 const FOLDER_COLUMN: Record<MediaCategory, string> = {
-  print: "print_folder_id",
   digitals: "digitals_folder_id",
   gif: "gif_folder_id",
   singles: "singles_folder_id",
@@ -43,7 +42,8 @@ export const adminGetEvent = createServerFn({ method: "GET" })
     const { data: rows, error: mediaError } = await (context.supabase as any)
       .from("media_items")
       .select("category, published, download_enabled, source")
-      .eq("event_id", data.eventId);
+      .eq("event_id", data.eventId)
+      .in("category", [...CATEGORIES]);
     if (mediaError) throw new Error("Could not load gallery");
 
     const stats = {
@@ -53,7 +53,7 @@ export const adminGetEvent = createServerFn({ method: "GET" })
       downloadsOn: 0,
       downloadsOff: 0,
       samples: 0,
-      byCategory: { print: 0, digitals: 0, gif: 0, singles: 0 } as Record<MediaCategory, number>,
+      byCategory: { digitals: 0, gif: 0, singles: 0 } as Record<MediaCategory, number>,
     };
     for (const row of rows ?? []) {
       if (row.published) stats.published += 1;

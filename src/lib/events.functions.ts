@@ -33,7 +33,6 @@ export interface EventInput {
   location: string | null;
   cover_url: string | null;
   drive_folder_id: string | null;
-  print_folder_id: string | null;
   digitals_folder_id: string | null;
   gif_folder_id: string | null;
   singles_folder_id: string | null;
@@ -109,7 +108,6 @@ export const saveEvent = createServerFn({ method: "POST" })
       location: data.location || null,
       cover_url: data.cover_url || null,
       drive_folder_id: data.drive_folder_id || null,
-      print_folder_id: data.print_folder_id || null,
       digitals_folder_id: data.digitals_folder_id || null,
       gif_folder_id: data.gif_folder_id || null,
       singles_folder_id: data.singles_folder_id || null,

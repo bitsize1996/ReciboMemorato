@@ -2,11 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 
 import type { GalleryEvent, MediaCategory, MediaItem, MediaPage } from "./gallery/types";
 
-const CATEGORIES = ["print", "digitals", "gif", "singles"] as const;
+const CATEGORIES = ["digitals", "gif", "singles"] as const;
 const PAGE_SIZE = 24;
 
 const EVENT_FIELDS =
-  "id, slug, name, event_date, location, cover_url, print_enabled, digitals_enabled, gif_enabled, singles_enabled";
+  "id, slug, name, event_date, location, cover_url, digitals_enabled, gif_enabled, singles_enabled";
 
 interface EventRowLite {
   id: string;
@@ -15,7 +15,6 @@ interface EventRowLite {
   event_date: string | null;
   location: string | null;
   cover_url: string | null;
-  print_enabled: boolean;
   digitals_enabled: boolean;
   gif_enabled: boolean;
   singles_enabled: boolean;
@@ -23,7 +22,6 @@ interface EventRowLite {
 
 function toGalleryEvent(row: EventRowLite): GalleryEvent {
   const flags: Record<MediaCategory, boolean> = {
-    print: row.print_enabled,
     digitals: row.digitals_enabled,
     gif: row.gif_enabled,
     singles: row.singles_enabled,
