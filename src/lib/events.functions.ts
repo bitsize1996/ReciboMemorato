@@ -13,6 +13,18 @@ async function assertAdmin(context: Ctx) {
   if (!data) throw new Error("Forbidden");
 }
 
+/**
+ * Optional safety net for the first-owner claim. When ADMIN_EMAIL is set,
+ * only the account with that email may claim owner access; when it is not
+ * set, behaviour is unchanged (first signed-in account can claim).
+ */
+function mayClaimAdmin(claims: unknown): boolean {
+  const allowed = process.env["ADMIN_EMAIL"]?.trim().toLowerCase();
+  if (!allowed) return true;
+  const email = (claims as { email?: string } | undefined)?.email?.trim().toLowerCase();
+  return email === allowed;
+}
+
 export interface EventInput {
   id?: string | null;
   slug: string;
@@ -43,13 +55,17 @@ export const getAdminStatus = createServerFn({ method: "GET" })
       .from("user_roles")
       .select("id", { count: "exact", head: true })
       .eq("role", "admin");
-    return { isAdmin: false, canClaim: (count ?? 0) === 0 };
+    return {
+      isAdmin: false,
+      canClaim: (count ?? 0) === 0 && mayClaimAdmin((context as any).claims),
+    };
   });
 
 /** The very first signed-in account may claim owner access while none exists. */
 export const claimAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    if (!mayClaimAdmin((context as any).claims)) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count } = await supabaseAdmin
       .from("user_roles")
