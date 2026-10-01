@@ -83,6 +83,30 @@ export type Database = {
         }
         Relationships: []
       }
+      event_categories: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       materials: {
         Row: {
           active: boolean
