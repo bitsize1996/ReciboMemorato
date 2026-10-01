@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel } from "@/lib/finance";
+import { useServerFn } from "@tanstack/react-start";
+import { syncSaleToGoogle } from "@/lib/calendar.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/sales/$saleId")({
   head: () => ({ meta: [{ title: "Sale | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -26,6 +28,8 @@ function SaleDetail() {
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const syncFn = useServerFn(syncSaleToGoogle);
   const refresh = () => qc.invalidateQueries({ queryKey: ["biz"] });
 
   if (sale.isPending) return <div className="adm-page"><p>Loading…</p></div>;
@@ -62,21 +66,38 @@ function SaleDetail() {
     navigate({ to: "/admin/sales" });
   }
 
+  async function syncCal() {
+    setMsg("Sending to Google Calendar…");
+    try {
+      const r = await syncFn({ data: { saleId: s.id } });
+      setMsg(r.message);
+      refresh();
+    } catch {
+      setMsg("Could not reach Google Calendar. Try again shortly.");
+    }
+  }
+
   return (
     <div className="adm-page">
       <header className="adm-head">
         <div><Link to="/admin/sales">← Sales</Link><h1>Sale {saleCode(s.sale_number)}</h1></div>
-        <Button variant="outline" onClick={deleteSale}>Delete sale</Button>
+        <div className="adm-row">
+          <Link to="/admin/sales/$saleId/invoice" params={{ saleId: s.id }}><Button variant="outline">Invoice</Button></Link>
+          <Button variant="outline" onClick={syncCal}>{s.gcal_event_id ? "Update Google Calendar" : "Add to Google Calendar"}</Button>
+          <Button variant="outline" onClick={deleteSale}>Delete sale</Button>
+        </div>
       </header>
       {err && <p className="adm-error">{err}</p>}
+      {msg && <p className="adm-hint">{msg}</p>}
       <div className="adm-grid">
         <section className="adm-card">
           <h2>Details</h2>
           <dl className="adm-dl">
             <dt>Customer</dt><dd>{s.customer_name}</dd>
             <dt>Contact</dt><dd>{s.customer_contact ?? "—"}</dd>
+            <dt>Email</dt><dd>{s.customer_email ?? "—"}</dd>
             <dt>Event</dt><dd>{s.event_name ?? "—"}</dd>
-            <dt>Event date</dt><dd>{s.event_date ?? "—"}</dd>
+            <dt>Event date</dt><dd>{s.event_date ?? "—"}{s.event_time ? ` · ${s.event_time}` : ""}</dd>
             <dt>Booking date</dt><dd>{s.booking_date}</dd>
             <dt>Package</dt><dd>{s.packages?.name ?? s.package_name_snapshot ?? "—"}</dd>
             <dt>Quantity</dt><dd>{s.quantity}</dd>

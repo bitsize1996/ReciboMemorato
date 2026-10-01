@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useMaterials, usePackages, useSales, type SaleRow } from "@/lib/admin-data";
 import { PAYMENT_STATUSES, inRange, n, peso, saleCode, statusLabel, type PaymentStatus } from "@/lib/finance";
+import { syncSaleToGoogle } from "@/lib/calendar.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/sales/")({
   head: () => ({ meta: [{ title: "Sales | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
