@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import {
   adminGetEvent,
   adminListMedia,
+  deleteCategoryMedia,
+  deleteMedia,
+  deleteSampleMedia,
   setCategoryMediaFlags,
   setEventCategoryEnabled,
   setEventPublished,
@@ -92,6 +95,36 @@ function ManageGalleryPage() {
     },
   });
 
+  const removeFiles = useMutation({
+    mutationFn: (ids: string[]) => deleteMedia({ data: { ids } }),
+    onSuccess: (result) => {
+      setSelected(new Set());
+      setNotice(`${result.removed} file${result.removed === 1 ? "" : "s"} removed from the gallery.`);
+      refresh();
+    },
+    onError: (e: Error) => setNotice(e.message),
+  });
+
+  const removeCategory = useMutation({
+    mutationFn: () => deleteCategoryMedia({ data: { eventId, category } }),
+    onSuccess: (result) => {
+      setSelected(new Set());
+      setNotice(`${result.removed} file${result.removed === 1 ? "" : "s"} removed from the gallery.`);
+      refresh();
+    },
+    onError: (e: Error) => setNotice(e.message),
+  });
+
+  const removeSamples = useMutation({
+    mutationFn: () => deleteSampleMedia(),
+    onSuccess: (result) => {
+      setSelected(new Set());
+      setNotice(`${result.removed} sample file${result.removed === 1 ? "" : "s"} removed.`);
+      refresh();
+    },
+    onError: (e: Error) => setNotice(e.message),
+  });
+
   const toggleCategory = useMutation({
     mutationFn: (input: { category: MediaCategory; enabled: boolean }) =>
       setEventCategoryEnabled({ data: { eventId, ...input } }),
@@ -113,7 +146,7 @@ function ManageGalleryPage() {
     );
   }
 
-  const { event, stats, driveConnected } = overview.data as any;
+  const { event, stats, driveConnected, samplesTotal } = overview.data as any;
   const rows = media.data ?? [];
   const allSelected = rows.length > 0 && rows.every((row: any) => selected.has(row.id));
 
@@ -130,6 +163,17 @@ function ManageGalleryPage() {
     if (selected.size === 0) return;
     flags.mutate({ ids: Array.from(selected), ...patch });
     setSelected(new Set());
+  };
+
+  const confirmRemove = (ids: string[], label: string) => {
+    if (ids.length === 0) return;
+    if (
+      window.confirm(
+        `Remove ${label} from the gallery?\n\nThis deletes them from the gallery only. The original files in Google Drive are not touched. This cannot be undone.`,
+      )
+    ) {
+      removeFiles.mutate(ids);
+    }
   };
 
   return (
@@ -149,8 +193,8 @@ function ManageGalleryPage() {
 
       {!driveConnected ? (
         <p className="archive-note">
-          Google Drive isn't connected yet, so this event uses clearly marked sample files. Once
-          your Drive is connected, the same controls work on your real photos.
+          Google Drive isn't connected yet, so there are no photos to load. Once your Drive is
+          connected, you can use the controls here on your real photos.
         </p>
       ) : null}
 
@@ -173,6 +217,26 @@ function ManageGalleryPage() {
           <Link to="/admin/events" className="admin-link">Edit folder links</Link>
         </div>
         {notice ? <p className="auth-message">{notice}</p> : null}
+        {samplesTotal > 0 ? (
+          <div className="admin-actions">
+            <button
+              type="button"
+              className="admin-link"
+              disabled={removeSamples.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Remove all ${samplesTotal} sample files from every event? Your real photos are not affected.`,
+                  )
+                ) {
+                  removeSamples.mutate();
+                }
+              }}
+            >
+              Remove all sample files ({samplesTotal})
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="admin-panel">
@@ -285,11 +349,35 @@ function ManageGalleryPage() {
           >
             Publish all in {category}
           </button>
+          <button
+            type="button"
+            className="admin-link"
+            disabled={selected.size === 0 || removeFiles.isPending}
+            onClick={() => confirmRemove(Array.from(selected), `${selected.size} selected file${selected.size === 1 ? "" : "s"}`)}
+          >
+            Remove selected ({selected.size})
+          </button>
+          <button
+            type="button"
+            className="admin-link"
+            disabled={rows.length === 0 || removeCategory.isPending}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Remove ALL ${rows.length} ${category.toUpperCase()} files from the gallery?\n\nThe original files in Google Drive are not touched. This cannot be undone.`,
+                )
+              ) {
+                removeCategory.mutate();
+              }
+            }}
+          >
+            Remove all in {category}
+          </button>
         </div>
 
         {media.isPending ? <p>Loading files…</p> : null}
         {!media.isPending && rows.length === 0 ? (
-          <p>No files here yet. Use "Check for new files" after uploading to Google Drive.</p>
+          <p>No files here. Use "Check for new files" after uploading to Google Drive.</p>
         ) : null}
 
         <div className="admin-media-list">
@@ -312,7 +400,7 @@ function ManageGalleryPage() {
                 <span>
                   {category.toUpperCase()}
                   {row.is_gif ? " · GIF" : ""}
-                  {row.source !== "drive" ? " · sample" : ""}
+                  {row.source === "sample" ? " · sample" : ""}
                 </span>
               </div>
               <label className="admin-check">
@@ -336,6 +424,14 @@ function ManageGalleryPage() {
                 />
                 Download
               </label>
+              <button
+                type="button"
+                className="admin-link"
+                disabled={removeFiles.isPending}
+                onClick={() => confirmRemove([row.id], `"${row.name}"`)}
+              >
+                Remove
+              </button>
             </div>
           ))}
         </div>

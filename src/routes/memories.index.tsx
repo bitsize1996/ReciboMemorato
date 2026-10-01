@@ -90,21 +90,23 @@ function ArchiveHeader({ s }: { s: SiteSettings }) {
 function ArchivePage() {
   const { data: events } = useSuspenseQuery(eventsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
-  const hasSamples = events.some((event) => event.isSample);
 
   return (
     <main className="archive-page">
       <ArchiveHeader s={s} />
-      {hasSamples ? (
-        <p className="archive-note">
-          Showing sample events. Real galleries appear once events are added in the admin page.
-        </p>
-      ) : null}
-      <div className="event-grid">
-        {events.map((event) => (
-          <EventCard key={event.id} event={event} />
-        ))}
-      </div>
+      {events.length === 0 ? (
+        <div className="gallery-state">
+          <p className="eyebrow">Coming soon</p>
+          <h3>Our first memories are on their way.</h3>
+          <p>Check back soon for photos from our past events.</p>
+        </div>
+      ) : (
+        <div className="event-grid">
+          {events.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+      )}
     </main>
   );
 }
