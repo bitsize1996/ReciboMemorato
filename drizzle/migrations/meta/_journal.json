@@ -22,6 +22,13 @@
       "when": 1790241832266,
       "tag": "0002_business_sales_costing",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790825857697,
+      "tag": "0003_sales_email_calendar",
+      "breakpoints": true
     }
   ]
 }
