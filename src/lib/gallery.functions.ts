@@ -7,6 +7,8 @@ const PAGE_SIZE = 24;
 
 const EVENT_FIELDS =
   "id, slug, name, event_date, location, cover_url, category_id, digitals_enabled, gif_enabled, singles_enabled";
+const LEGACY_EVENT_FIELDS =
+  "id, slug, name, event_date, location, cover_url, digitals_enabled, gif_enabled, singles_enabled";
 
 interface EventRowLite {
   id: string;
@@ -15,10 +17,22 @@ interface EventRowLite {
   event_date: string | null;
   location: string | null;
   cover_url: string | null;
-  category_id: string | null;
+  category_id?: string | null;
   digitals_enabled: boolean;
   gif_enabled: boolean;
   singles_enabled: boolean;
+}
+
+function isMissingCategoryColumn(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /category_id|column .* does not exist/i.test(message);
+}
+
+async function loadEventsQuery(queryFactory: (fields: string) => any) {
+  const first = await queryFactory(EVENT_FIELDS);
+  if (!first.error || !isMissingCategoryColumn(first.error)) return first;
+  console.warn("Event category column is not available yet; using legacy event fields.");
+  return queryFactory(LEGACY_EVENT_FIELDS);
 }
 
 function toGalleryEvent(row: EventRowLite): GalleryEvent {
@@ -34,7 +48,7 @@ function toGalleryEvent(row: EventRowLite): GalleryEvent {
     eventDate: row.event_date,
     location: row.location,
     coverUrl: row.cover_url,
-    categoryId: row.category_id,
+    categoryId: row.category_id ?? null,
     isSample: false,
     categories: CATEGORIES.filter((key) => flags[key]),
   };
@@ -44,12 +58,14 @@ export const listPublishedEvents = createServerFn({ method: "GET" }).handler(
   async (): Promise<GalleryEvent[]> => {
     const { publicSupabase } = await import("./gallery/events.server");
 
-    const { data, error } = await publicSupabase()
-      .from("events")
-      .select(EVENT_FIELDS)
-      .eq("published", true)
-      .order("sort_order", { ascending: false })
-      .order("event_date", { ascending: false });
+    const { data, error } = await loadEventsQuery((fields) =>
+      publicSupabase()
+        .from("events")
+        .select(fields)
+        .eq("published", true)
+        .order("sort_order", { ascending: false })
+        .order("event_date", { ascending: false }),
+    );
 
     if (error) {
       console.error("Failed to load events", error);
@@ -65,12 +81,14 @@ export const getPublishedEvent = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<GalleryEvent | null> => {
     const { publicSupabase } = await import("./gallery/events.server");
 
-    const { data: row, error } = await publicSupabase()
-      .from("events")
-      .select(EVENT_FIELDS)
-      .eq("published", true)
-      .eq("slug", data.slug)
-      .maybeSingle();
+    const { data: row, error } = await loadEventsQuery((fields) =>
+      publicSupabase()
+        .from("events")
+        .select(fields)
+        .eq("published", true)
+        .eq("slug", data.slug)
+        .maybeSingle(),
+    );
 
     if (error) {
       console.error("Failed to load event", error);
@@ -92,12 +110,14 @@ export const listEventMedia = createServerFn({ method: "GET" })
     const { publicSupabase } = await import("./gallery/events.server");
 
     const supabase = publicSupabase();
-    const { data: row, error } = await supabase
-      .from("events")
-      .select(EVENT_FIELDS)
-      .eq("published", true)
-      .eq("slug", data.slug)
-      .maybeSingle();
+    const { data: row, error } = await loadEventsQuery((fields) =>
+      supabase
+        .from("events")
+        .select(fields)
+        .eq("published", true)
+        .eq("slug", data.slug)
+        .maybeSingle(),
+    );
 
     if (error) {
       console.error("Failed to load event", error);
