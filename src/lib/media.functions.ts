@@ -21,11 +21,11 @@ function categoryOf(input: unknown): MediaCategory {
   return input as MediaCategory;
 }
 
-// Drive sub-folder names (lower-case) that belong to each tab.
-const FOLDER_ALIASES: Record<MediaCategory, string[]> = {
-  gif: ["animated", "animation", "animations", "gif", "gifs"],
-  digitals: ["prints", "print", "digitals", "digital"],
-  singles: ["single photos", "single photo", "singles", "single"],
+// Words that identify each tab's Drive sub-folder (matched anywhere in the name).
+const FOLDER_KEYWORDS: Record<MediaCategory, string[]> = {
+  gif: ["animat", "gif"],
+  digitals: ["print", "digital"],
+  singles: ["single"],
 };
 
 function normalizeName(value: string): string {
@@ -106,7 +106,7 @@ export const adminListMedia = createServerFn({ method: "GET" })
     const { data: rows, error } = await (context.supabase as any)
       .from("media_items")
       .select(
-        "id, name, thumb_url, full_url, is_gif, source, published, download_enabled, created_at",
+        "id, name, thumb_url, full_url, is_gif, mime_type, source, published, download_enabled, created_at",
       )
       .eq("event_id", data.eventId)
       .eq("category", data.category)
@@ -134,9 +134,8 @@ export const syncEventMedia = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !event) throw new Error("Event not found");
 
-    const { isDriveConfigured, listAllDriveFiles, listDriveSubfolders } = await import(
-      "./gallery/drive.server"
-    );
+    const { isDriveConfigured, listAllDriveFiles, listDriveSubfolders, listOtherDriveFiles } =
+      await import("./gallery/drive.server");
     const driveConnected = isDriveConfigured();
     if (!driveConnected) {
       throw new Error("Google Drive isn't connected yet, so there is nothing to check.");
@@ -151,64 +150,99 @@ export const syncEventMedia = createServerFn({ method: "POST" })
     );
 
     const inserts: Record<string, unknown>[] = [];
+    const report: string[] = [];
+    const learned: Record<string, string> = {};
 
-    const folderIds = {} as Record<MediaCategory, string | null>;
-    for (const category of CATEGORIES) {
-      folderIds[category] = (event[FOLDER_COLUMN[category]] as string | null) || null;
-    }
+    const labelOf = (category: MediaCategory) =>
+      category === "gif" ? "Animated" : category === "digitals" ? "Prints" : "Single Photos";
+    const isFolderAccessError = (e: unknown) =>
+      e instanceof Error && ["drive_error_400", "drive_error_403", "drive_error_404"].includes(e.message);
 
-    // Only the main event folder was given: find the Animated / Prints /
-    // Single Photos folders inside it and remember them.
     const mainFolder = (event.drive_folder_id as string | null) || null;
-    if (mainFolder && CATEGORIES.some((category) => !folderIds[category])) {
-      let subfolders;
-      try {
-        subfolders = await listDriveSubfolders(mainFolder);
-      } catch (e) {
-        throw new Error(driveErrorMessage(e));
-      }
-      const learned: Record<string, string> = {};
-      for (const category of CATEGORIES) {
-        if (folderIds[category]) continue;
-        const match = subfolders.find((folder) =>
-          FOLDER_ALIASES[category].includes(normalizeName(folder.name)),
-        );
-        if (match) {
-          folderIds[category] = match.id;
-          learned[FOLDER_COLUMN[category]] = match.id;
+    let subfolderCache: { id: string; name: string }[] | null = null;
+    const findFolder = async (category: MediaCategory): Promise<string | null> => {
+      if (!mainFolder) return null;
+      if (!subfolderCache) {
+        try {
+          subfolderCache = await listDriveSubfolders(mainFolder);
+        } catch (e) {
+          throw new Error(driveErrorMessage(e));
         }
       }
-      if (Object.keys(learned).length > 0) {
-        await (context.supabase as any).from("events").update(learned).eq("id", data.eventId);
-      }
-    }
+      const match = subfolderCache.find((folder) => {
+        const name = normalizeName(folder.name);
+        return FOLDER_KEYWORDS[category].some((word) => name.includes(word));
+      });
+      return match?.id ?? null;
+    };
 
-    const foldersFound = CATEGORIES.filter((category) => folderIds[category]).length;
+    let foldersFound = 0;
 
     for (const category of CATEGORIES) {
-      const folderId = folderIds[category];
-      if (!folderId) continue;
+      const label = labelOf(category);
+      let folderId = (event[FOLDER_COLUMN[category]] as string | null) || null;
+      let files: Awaited<ReturnType<typeof listAllDriveFiles>> | null = null;
+      // The Animated tab also accepts videos (MP4, MOV…).
+      const listOptions = { includeVideos: category === "gif" };
 
-      let files;
-      try {
-        files = await listAllDriveFiles(folderId);
-      } catch (e) {
-        throw new Error(driveErrorMessage(e));
+      // A saved folder link that no longer works falls back to the main folder.
+      if (folderId) {
+        try {
+          files = await listAllDriveFiles(folderId, listOptions);
+        } catch (e) {
+          if (mainFolder && isFolderAccessError(e)) folderId = null;
+          else throw new Error(driveErrorMessage(e));
+        }
       }
+      if (!folderId) {
+        folderId = await findFolder(category);
+        if (folderId) {
+          try {
+            files = await listAllDriveFiles(folderId, listOptions);
+          } catch (e) {
+            throw new Error(driveErrorMessage(e));
+          }
+          learned[FOLDER_COLUMN[category]] = folderId;
+        }
+      }
+
+      if (!folderId || !files) {
+        report.push(`${label}: folder not found`);
+        continue;
+      }
+      foldersFound += 1;
+
+      let added = 0;
       for (const file of files) {
         if (seen.has(`${category}:${file.id}`)) continue;
+        added += 1;
         inserts.push({
           event_id: data.eventId,
           category,
           drive_file_id: file.id,
           name: file.name,
           mime_type: file.mimeType,
-          width: file.imageMediaMetadata?.width ?? null,
-          height: file.imageMediaMetadata?.height ?? null,
+          width: file.imageMediaMetadata?.width ?? file.videoMediaMetadata?.width ?? null,
+          height: file.imageMediaMetadata?.height ?? file.videoMediaMetadata?.height ?? null,
           is_gif: file.mimeType === "image/gif",
           source: "drive",
         });
       }
+
+      if (files.length === 0) {
+        const others = await listOtherDriveFiles(folderId);
+        report.push(
+          others.length > 0
+            ? `${label}: no photos or videos, but ${others.length} other file${others.length === 1 ? "" : "s"} found (for example "${others[0]!.name}"). Only images (JPG, PNG, GIF, WebP) and, in Animated, videos can be shown.`
+            : `${label}: folder found but it is empty`,
+        );
+      } else {
+        report.push(`${label}: ${files.length} file${files.length === 1 ? "" : "s"} found (${added} new)`);
+      }
+    }
+
+    if (Object.keys(learned).length > 0) {
+      await (context.supabase as any).from("events").update(learned).eq("id", data.eventId);
     }
 
     if (inserts.length > 0) {
@@ -220,7 +254,7 @@ export const syncEventMedia = createServerFn({ method: "POST" })
       }
     }
 
-    return { added: inserts.length, driveConnected, foldersFound };
+    return { added: inserts.length, driveConnected, foldersFound, report };
   });
 
 export const setMediaFlags = createServerFn({ method: "POST" })

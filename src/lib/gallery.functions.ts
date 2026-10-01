@@ -112,7 +112,7 @@ export const listEventMedia = createServerFn({ method: "GET" })
     const offset = data.pageToken ? Number(data.pageToken) || 0 : 0;
     const { data: rows, error: mediaError } = await supabase
       .from("media_items")
-      .select("id, name, thumb_url, full_url, width, height, is_gif, download_enabled")
+      .select("id, name, thumb_url, full_url, width, height, is_gif, mime_type, download_enabled")
       .eq("event_id", event.id)
       .eq("category", data.category)
       .eq("published", true)
@@ -137,6 +137,7 @@ export const listEventMedia = createServerFn({ method: "GET" })
         width: media.width,
         height: media.height,
         isGif: media.is_gif,
+        isVideo: Boolean(media.mime_type?.startsWith("video/")),
       };
     });
 
