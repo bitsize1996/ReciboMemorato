@@ -1,4 +1,4 @@
-# Receibo Memorato
+# Recibo Memorato
 
 RECIBO MEMORATO BY THE BITSIZE SIBS
 
@@ -278,6 +278,19 @@ Prefer working locally? You need Node.js and npm — [install with nvm](https://
 ```sh
 git clone <this-repository-url>
 cd <repository-name>
-npm i
-npm run dev
+cp .env.example .env   # then fill in your values
+bun install            # or: npm i
+bun run dev            # or: npm run dev
 ```
+
+### Environment variables
+
+See `.env.example`. The `VITE_`/`SUPABASE_` URL and publishable key are safe to
+expose to the browser. Server-only secrets (`LOVABLE_API_KEY`,
+`GOOGLE_DRIVE_API_KEY`, the Supabase service-role key) must never be committed.
+
+### Owner account
+
+The first signed-in account can claim owner access at `/admin`. Set
+`ADMIN_EMAIL` to restrict that claim to your own email address, and consider
+turning off public sign-ups in Supabase once your owner account exists.
