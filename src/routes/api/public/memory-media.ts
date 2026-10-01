@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/public/memory-media")({
         const { isDriveConfigured, fetchDriveFile } = await import("@/lib/gallery/drive.server");
         if (!isDriveConfigured()) return new Response("Unavailable", { status: 503 });
 
-        const upstream = await fetchDriveFile(media.drive_file_id);
+        const upstream = await fetchDriveFile(media.drive_file_id, request.headers.get("range"));
         if (!upstream.ok || !upstream.body) {
           console.error(`Media proxy failed [${upstream.status}]`);
           return new Response("Unavailable", { status: 502 });
@@ -46,13 +46,18 @@ export const Route = createFileRoute("/api/public/memory-media")({
           "content-type":
             upstream.headers.get("content-type") ?? media.mime_type ?? "image/jpeg",
           "cache-control": "public, max-age=86400",
+          "accept-ranges": upstream.headers.get("accept-ranges") ?? "bytes",
         });
+        for (const name of ["content-length", "content-range"]) {
+          const value = upstream.headers.get(name);
+          if (value) headers.set(name, value);
+        }
         if (wantsDownload) {
           const safeName = media.name.replace(/["\\]/g, "");
           headers.set("content-disposition", `attachment; filename="${safeName}"`);
         }
 
-        return new Response(upstream.body, { status: 200, headers });
+        return new Response(upstream.body, { status: upstream.status, headers });
       },
     },
   },
