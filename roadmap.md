@@ -6,7 +6,7 @@
 - [x] Memory Archive: archive page, event pages with PRINT/DIGITALS/GIF/SINGLES tabs, lightbox
 - [x] Owner sign-in and admin page for adding events
 - [ ] Replace temporary photo slots and Messenger link when supplied
-- [ ] Connect the Google Drive account so real event folders replace the sample photos
+- [x] Connect the Google Drive account so real event folders replace the sample photos
 - [x] Owner controls: publish/download switches per file, category switches, bulk actions, counts
 - [x] Private admin dashboard: overview, sales, packages, materials, expenses, reports, settings (₱, saved cost snapshots, admin-only database access)
 - [x] Self-serve Customize page in admin (logo name, main texts, colors) + settings table; chat-based edits still available
