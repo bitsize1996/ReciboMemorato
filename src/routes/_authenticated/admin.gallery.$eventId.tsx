@@ -68,13 +68,13 @@ function ManageGalleryPage() {
   const sync = useMutation({
     mutationFn: () => syncEventMedia({ data: { eventId } }),
     onSuccess: (result) => {
-      setNotice(
+      const headline =
         result.foldersFound === 0
           ? "We couldn't find folders named Animated, Prints or Single Photos in that Google Drive folder. Check the folder names, or use \"Edit folder links\" to paste each folder's link."
           : result.added === 0
-          ? "No new files found."
-          : `${result.added} new file${result.added === 1 ? "" : "s"} added — all still hidden until you publish them.`,
-      );
+            ? "No new files found."
+            : `${result.added} new file${result.added === 1 ? "" : "s"} added — all still hidden until you publish them.`;
+      setNotice([headline, ...(result.report ?? [])].join("\n"));
       refresh();
     },
     onError: (e: Error) => setNotice(e.message),
@@ -217,7 +217,7 @@ function ManageGalleryPage() {
           </Button>
           <Link to="/admin/events" className="admin-link">Edit folder links</Link>
         </div>
-        {notice ? <p className="auth-message">{notice}</p> : null}
+        {notice ? <p className="auth-message" style={{ whiteSpace: "pre-line" }}>{notice}</p> : null}
         {samplesTotal > 0 ? (
           <div className="admin-actions">
             <button
@@ -390,17 +390,28 @@ function ManageGalleryPage() {
                 onChange={() => toggleOne(row.id)}
                 aria-label={`Select ${row.name}`}
               />
-              <img
-                src={row.thumb_url ?? `/api/public/memory-media?id=${row.id}`}
-                alt=""
-                loading="lazy"
-                decoding="async"
-              />
+              {String(row.mime_type ?? "").startsWith("video/") ? (
+                <video
+                  src={`/api/public/memory-media?id=${row.id}#t=0.1`}
+                  muted
+                  playsInline
+                  preload="none"
+                  style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 6, background: "rgba(0,0,0,.08)" }}
+                />
+              ) : (
+                <img
+                  src={row.thumb_url ?? `/api/public/memory-media?id=${row.id}`}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
+              )}
               <div className="admin-media-meta">
                 <strong>{row.name}</strong>
                 <span>
                   {categoryLabel}
                   {row.is_gif ? " · GIF" : ""}
+                  {String(row.mime_type ?? "").startsWith("video/") ? " · video" : ""}
                   {row.source === "sample" ? " · sample" : ""}
                 </span>
               </div>
