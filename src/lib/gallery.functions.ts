@@ -43,7 +43,6 @@ function toGalleryEvent(row: EventRowLite): GalleryEvent {
 export const listPublishedEvents = createServerFn({ method: "GET" }).handler(
   async (): Promise<GalleryEvent[]> => {
     const { publicSupabase } = await import("./gallery/events.server");
-    const { SAMPLE_EVENTS } = await import("./gallery/mock.server");
 
     const { data, error } = await publicSupabase()
       .from("events")
@@ -56,7 +55,7 @@ export const listPublishedEvents = createServerFn({ method: "GET" }).handler(
       console.error("Failed to load events", error);
       throw new Error("events_unavailable");
     }
-    if (!data || data.length === 0) return SAMPLE_EVENTS;
+    if (!data || data.length === 0) return [];
     return (data as EventRowLite[]).map(toGalleryEvent);
   },
 );
@@ -65,7 +64,6 @@ export const getPublishedEvent = createServerFn({ method: "GET" })
   .inputValidator((input: { slug: string }) => ({ slug: String(input.slug) }))
   .handler(async ({ data }): Promise<GalleryEvent | null> => {
     const { publicSupabase } = await import("./gallery/events.server");
-    const { SAMPLE_EVENTS } = await import("./gallery/mock.server");
 
     const { data: row, error } = await publicSupabase()
       .from("events")
@@ -78,8 +76,7 @@ export const getPublishedEvent = createServerFn({ method: "GET" })
       console.error("Failed to load event", error);
       throw new Error("events_unavailable");
     }
-    if (row) return toGalleryEvent(row as EventRowLite);
-    return SAMPLE_EVENTS.find((event) => event.slug === data.slug) ?? null;
+    return row ? toGalleryEvent(row as EventRowLite) : null;
   });
 
 export const listEventMedia = createServerFn({ method: "GET" })
@@ -93,7 +90,6 @@ export const listEventMedia = createServerFn({ method: "GET" })
   })
   .handler(async ({ data }): Promise<MediaPage> => {
     const { publicSupabase } = await import("./gallery/events.server");
-    const { getMockMedia } = await import("./gallery/mock.server");
 
     const supabase = publicSupabase();
     const { data: row, error } = await supabase
@@ -108,8 +104,7 @@ export const listEventMedia = createServerFn({ method: "GET" })
       throw new Error("media_unavailable");
     }
 
-    // Sample events live outside the database.
-    if (!row) return getMockMedia(data.slug, data.category, data.pageToken);
+    if (!row) return { items: [], nextPageToken: null, source: "drive" };
 
     const event = toGalleryEvent(row as EventRowLite);
     if (!event.categories.includes(data.category)) {
@@ -123,6 +118,7 @@ export const listEventMedia = createServerFn({ method: "GET" })
       .eq("event_id", event.id)
       .eq("category", data.category)
       .eq("published", true)
+      .neq("source", "sample")
       .order("name", { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
 

@@ -42,7 +42,7 @@ export const adminGetEvent = createServerFn({ method: "GET" })
 
     const { data: rows, error: mediaError } = await (context.supabase as any)
       .from("media_items")
-      .select("category, published, download_enabled")
+      .select("category, published, download_enabled, source")
       .eq("event_id", data.eventId);
     if (mediaError) throw new Error("Could not load gallery");
 
@@ -52,6 +52,7 @@ export const adminGetEvent = createServerFn({ method: "GET" })
       unpublished: 0,
       downloadsOn: 0,
       downloadsOff: 0,
+      samples: 0,
       byCategory: { print: 0, digitals: 0, gif: 0, singles: 0 } as Record<MediaCategory, number>,
     };
     for (const row of rows ?? []) {
@@ -59,11 +60,17 @@ export const adminGetEvent = createServerFn({ method: "GET" })
       else stats.unpublished += 1;
       if (row.download_enabled) stats.downloadsOn += 1;
       else stats.downloadsOff += 1;
+      if (row.source === "sample") stats.samples += 1;
       stats.byCategory[row.category as MediaCategory] += 1;
     }
 
+    const { count: samplesTotal } = await (context.supabase as any)
+      .from("media_items")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "sample");
+
     const { isDriveConfigured } = await import("./gallery/drive.server");
-    return { event, stats, driveConnected: isDriveConfigured() };
+    return { event, stats, samplesTotal: samplesTotal ?? 0, driveConnected: isDriveConfigured() };
   });
 
 export const adminListMedia = createServerFn({ method: "GET" })
@@ -90,8 +97,7 @@ export const adminListMedia = createServerFn({ method: "GET" })
 /**
  * Reads the connected Google Drive folders and records any file we have not
  * seen before. New files always arrive switched off — nothing becomes public
- * until the owner says so. When Drive is not connected yet, clearly marked
- * sample files are created instead.
+ * until the owner says so. No sample/placeholder files are ever created.
  */
 export const syncEventMedia = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -107,8 +113,10 @@ export const syncEventMedia = createServerFn({ method: "POST" })
     if (error || !event) throw new Error("Event not found");
 
     const { isDriveConfigured, listAllDriveFiles } = await import("./gallery/drive.server");
-    const { buildMockFiles } = await import("./gallery/mock.server");
     const driveConnected = isDriveConfigured();
+    if (!driveConnected) {
+      throw new Error("Google Drive isn't connected yet, so there is nothing to check.");
+    }
 
     const { data: existing } = await (context.supabase as any)
       .from("media_items")
@@ -119,50 +127,31 @@ export const syncEventMedia = createServerFn({ method: "POST" })
     );
 
     const inserts: Record<string, unknown>[] = [];
-    let usedSamples = false;
 
     for (const category of CATEGORIES) {
       const folderId = event[FOLDER_COLUMN[category]] as string | null;
 
-      if (driveConnected && folderId) {
-        let files;
-        try {
-          files = await listAllDriveFiles(folderId);
-        } catch {
-          throw new Error("Could not reach Google Drive. Please try again shortly.");
-        }
-        for (const file of files) {
-          if (seen.has(`${category}:${file.id}`)) continue;
-          inserts.push({
-            event_id: data.eventId,
-            category,
-            drive_file_id: file.id,
-            name: file.name,
-            mime_type: file.mimeType,
-            width: file.imageMediaMetadata?.width ?? null,
-            height: file.imageMediaMetadata?.height ?? null,
-            is_gif: file.mimeType === "image/gif",
-            source: "drive",
-          });
-        }
-      } else {
-        usedSamples = true;
-        for (const file of buildMockFiles(data.eventId, category)) {
-          if (seen.has(`${category}:${file.drive_file_id}`)) continue;
-          inserts.push({
-            event_id: data.eventId,
-            category,
-            drive_file_id: file.drive_file_id,
-            name: file.name,
-            mime_type: file.mime_type,
-            width: file.width,
-            height: file.height,
-            thumb_url: file.thumb_url,
-            full_url: file.full_url,
-            is_gif: file.mime_type === "image/gif",
-            source: "sample",
-          });
-        }
+      if (!folderId) continue;
+
+      let files;
+      try {
+        files = await listAllDriveFiles(folderId);
+      } catch {
+        throw new Error("Could not reach Google Drive. Please try again shortly.");
+      }
+      for (const file of files) {
+        if (seen.has(`${category}:${file.id}`)) continue;
+        inserts.push({
+          event_id: data.eventId,
+          category,
+          drive_file_id: file.id,
+          name: file.name,
+          mime_type: file.mimeType,
+          width: file.imageMediaMetadata?.width ?? null,
+          height: file.imageMediaMetadata?.height ?? null,
+          is_gif: file.mimeType === "image/gif",
+          source: "drive",
+        });
       }
     }
 
@@ -175,7 +164,7 @@ export const syncEventMedia = createServerFn({ method: "POST" })
       }
     }
 
-    return { added: inserts.length, driveConnected, usedSamples };
+    return { added: inserts.length, driveConnected };
   });
 
 export const setMediaFlags = createServerFn({ method: "POST" })
@@ -268,4 +257,67 @@ export const setEventPublished = createServerFn({ method: "POST" })
       .eq("id", data.eventId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Removes files from the gallery (the database record only). The original
+ * file in Google Drive is never touched.
+ */
+export const deleteMedia = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { ids: string[] }) => ({ ids: (input.ids ?? []).map(String) }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as Ctx);
+    if (data.ids.length === 0) return { removed: 0 };
+
+    let removed = 0;
+    for (const ids of chunk(data.ids, 100)) {
+      const { data: rows, error } = await (context.supabase as any)
+        .from("media_items")
+        .delete()
+        .in("id", ids)
+        .select("id");
+      if (error) throw new Error(error.message);
+      removed += rows?.length ?? 0;
+    }
+    return { removed };
+  });
+
+/** Removes every file in one category of an event from the gallery. */
+export const deleteCategoryMedia = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { eventId: string; category: MediaCategory }) => ({
+    eventId: String(input.eventId),
+    category: categoryOf(input.category),
+  }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as Ctx);
+    const { data: rows, error } = await (context.supabase as any)
+      .from("media_items")
+      .delete()
+      .eq("event_id", data.eventId)
+      .eq("category", data.category)
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: rows?.length ?? 0 };
+  });
+
+/** Removes every leftover sample/placeholder file from all events. */
+export const deleteSampleMedia = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context as Ctx);
+    const { data: rows, error } = await (context.supabase as any)
+      .from("media_items")
+      .delete()
+      .eq("source", "sample")
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: rows?.length ?? 0 };
   });
