@@ -459,6 +459,7 @@ export type Database = {
           hero_eyebrow: string
           hero_lead: string
           hero_title: string
+          homepage_content: Json
           id: number
           messenger_url: string
           updated_at: string
@@ -477,6 +478,7 @@ export type Database = {
           hero_eyebrow?: string
           hero_lead?: string
           hero_title?: string
+          homepage_content?: Json
           id?: number
           messenger_url?: string
           updated_at?: string
@@ -495,6 +497,7 @@ export type Database = {
           hero_eyebrow?: string
           hero_lead?: string
           hero_title?: string
+          homepage_content?: Json
           id?: number
           messenger_url?: string
           updated_at?: string
