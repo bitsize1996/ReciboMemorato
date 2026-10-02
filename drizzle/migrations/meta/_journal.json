@@ -33,15 +33,8 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1790925930686,
-      "tag": "0004_add_homepage_content_to_site_settings",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1790926227783,
-      "tag": "0005_add_event_categories",
+      "when": 1791100000000,
+      "tag": "0004_event_categories_and_covers",
       "breakpoints": true
     }
   ]
