@@ -193,10 +193,10 @@ function Index() {
         </div>
         <div className="services-grid">
           {h.services.map((service, index) => {
-            const Icon = serviceVisuals[index].icon;
+            const Icon = (serviceVisuals[index] ?? serviceVisuals[0]).icon;
             return (
               <article className="service-card" key={service.title}>
-                <MemoryVisual type={serviceVisuals[index].visual} label={service.title} image={service.image} />
+                <MemoryVisual type={(serviceVisuals[index] ?? serviceVisuals[0]).visual} label={service.title} image={service.image} />
                 <div className="service-content">
                   <div className="service-meta"><span>{String(index + 1).padStart(2, "0")}</span><Icon aria-hidden="true" /></div>
                   <h3>{service.title}</h3>
@@ -236,7 +236,7 @@ function Index() {
         <div className="proof-gallery" aria-label="Customer memory gallery">
           {h.proofImages.map((item, index) => (
             <figure key={index}>
-              <MemoryVisual type={["receipt", "angle", "instax"][index]} label={`Customer memory ${index + 1}`} image={item.image} />
+              <MemoryVisual type={["receipt", "angle", "instax"][index] ?? "receipt"} label={`Customer memory ${index + 1}`} image={item.image} />
               <figcaption>{item.caption}</figcaption>
             </figure>
           ))}

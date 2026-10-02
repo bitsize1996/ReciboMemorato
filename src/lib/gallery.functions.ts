@@ -24,7 +24,7 @@ interface EventRowLite {
 }
 
 function isMissingCategoryColumn(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
+  const message = error && typeof error === "object" && "message" in error ? String(error.message) : String(error ?? "");
   return /category_id|column .* does not exist/i.test(message);
 }
 

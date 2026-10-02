@@ -98,7 +98,10 @@ function CustomizePage() {
     const order = [...form.homepage.sectionOrder];
     const current = order.indexOf(key), next = current + step;
     if (current < 0 || next < 0 || next >= order.length) return;
-    [order[current], order[next]] = [order[next], order[current]];
+    const selected = order[current], neighbor = order[next];
+    if (!selected || !neighbor) return;
+    order[current] = neighbor;
+    order[next] = selected;
     setHome({ sectionOrder: order });
   };
   const upload = async (event: ChangeEvent<HTMLInputElement>, label: string, onDone: (url: string) => void) => {
@@ -178,7 +181,7 @@ function CustomizePage() {
         </>}
         <div className="custom-fields">
           {config.fields.map(({ key, label, long }) => input(label, h[key], (value) => setField(key, value), long))}
-          {config.arrays?.flatMap(({ key, labels }) => labels.map((label, index) => input(label, h[key][index], (value) => setArray(key, index, value), true)))}
+          {config.arrays?.flatMap(({ key, labels }) => labels.map((label, index) => input(label, h[key][index] ?? "", (value) => setArray(key, index, value), true)))}
         </div>
         {active === "services" && <div className="custom-repeat-list">{h.services.map((service, i) => <section key={i} className="custom-repeat">
           <h3>Service {i + 1}</h3>
