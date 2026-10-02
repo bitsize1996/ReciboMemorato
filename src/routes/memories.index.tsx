@@ -1,10 +1,9 @@
-import { queryOptions, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { listPublishedEvents } from "@/lib/gallery.functions";
-import { listEventCategories } from "@/lib/events.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import type { SiteSettings } from "@/lib/site-settings";
 import { formatEventDate, formatReceiptDate } from "@/lib/gallery/types";
@@ -39,11 +38,19 @@ export const Route = createFileRoute("/memories/")({
 });
 
 export function EventCard({ event }: { event: GalleryEvent }) {
+  // A cover that can't be loaded falls back to the placeholder, never a broken icon.
+  const [coverFailed, setCoverFailed] = useState(false);
   return (
     <article className="event-card">
       <Link to="/memories/$slug" params={{ slug: event.slug }} className="event-card-media">
-        {event.coverUrl ? (
-          <img src={event.coverUrl} alt={event.name} loading="lazy" decoding="async" />
+        {event.coverUrl && !coverFailed ? (
+          <img
+            src={event.coverUrl}
+            alt={event.name}
+            loading="lazy"
+            decoding="async"
+            onError={() => setCoverFailed(true)}
+          />
         ) : (
           <div className="memory-visual memory-visual-strip" role="img" aria-label={event.name}>
             <div className="memory-flash" />
@@ -55,7 +62,7 @@ export function EventCard({ event }: { event: GalleryEvent }) {
       </Link>
       <div className="event-card-body">
         <div className="event-receipt-line">
-          <span>EVENT</span>
+          <span>{event.categoryName ? event.categoryName.toUpperCase() : "EVENT"}</span>
           <span>{formatReceiptDate(event.eventDate)}</span>
         </div>
         <h3>{event.name}</h3>
@@ -89,29 +96,89 @@ function ArchiveHeader({ s }: { s: SiteSettings }) {
   );
 }
 
+const OTHER_KEY = "__other";
+
 function ArchivePage() {
   const { data: events } = useSuspenseQuery(eventsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
-  const { data: categories } = useQuery({ queryKey: ["event-categories"], queryFn: () => listEventCategories() });
-  const [categoryId, setCategoryId] = useState<string>("");
-  const filteredEvents = categoryId ? events.filter((event) => event.categoryId === categoryId) : events;
+  const [selected, setSelected] = useState<string>("all");
+
+  // Group events by the category the owner picked; the rest go under "Other events".
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; name: string; sort: number; events: GalleryEvent[] }>();
+    for (const event of events) {
+      const key = event.categoryId ?? OTHER_KEY;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          name: event.categoryName ?? "Other events",
+          sort: event.categoryId ? event.categorySort : Number.MAX_SAFE_INTEGER,
+          events: [],
+        });
+      }
+      map.get(key)!.events.push(event);
+    }
+    return [...map.values()].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+  }, [events]);
+
+  const hasCategories = events.some((event) => event.categoryId);
+  const visibleGroups = selected === "all" ? groups : groups.filter((g) => g.key === selected);
 
   return (
     <main className="archive-page">
       <ArchiveHeader s={s} />
-      {categories?.length ? <div className="category-tabs" role="tablist" aria-label="Event categories"><button type="button" className={!categoryId ? "is-active" : undefined} onClick={() => setCategoryId("")}>All</button>{categories.map((category: any) => <button type="button" key={category.id} className={categoryId === category.id ? "is-active" : undefined} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div> : null}
-      {filteredEvents.length === 0 ? (
+      {events.length === 0 ? (
         <div className="gallery-state">
           <p className="eyebrow">Coming soon</p>
           <h3>Our first memories are on their way.</h3>
           <p>Check back soon for photos from our past events.</p>
         </div>
-      ) : (
+      ) : !hasCategories ? (
         <div className="event-grid">
-          {filteredEvents.map((event) => (
+          {events.map((event) => (
             <EventCard key={event.id} event={event} />
           ))}
         </div>
+      ) : (
+        <>
+          <div className="category-tabs" role="tablist" aria-label="Event categories">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selected === "all"}
+              className={selected === "all" ? "is-active" : ""}
+              onClick={() => setSelected("all")}
+            >
+              All
+            </button>
+            {groups.map((group) => (
+              <button
+                key={group.key}
+                type="button"
+                role="tab"
+                aria-selected={selected === group.key}
+                className={selected === group.key ? "is-active" : ""}
+                onClick={() => setSelected(group.key)}
+              >
+                {group.name}
+              </button>
+            ))}
+          </div>
+          {visibleGroups.map((group) => (
+            <section key={group.key}>
+              {selected === "all" ? (
+                <h2 className="eyebrow" style={{ margin: "32px 0 16px" }}>
+                  {group.name}
+                </h2>
+              ) : null}
+              <div className="event-grid">
+                {group.events.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </>
       )}
     </main>
   );
