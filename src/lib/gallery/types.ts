@@ -32,9 +32,11 @@ export interface GalleryEvent {
   eventDate: string | null;
   location: string | null;
   coverUrl: string | null;
-  categoryId: string | null;
-  categoryName?: string | null;
   isSample: boolean;
+  /** Event category chosen by the owner (Birthday, Wedding…), if any. */
+  categoryId: string | null;
+  categoryName: string | null;
+  categorySort: number;
   /** Only the categories the owner has switched on for this event. */
   categories: MediaCategory[];
 }
