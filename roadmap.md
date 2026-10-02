@@ -9,7 +9,7 @@
 - [x] Connect the Google Drive account so real event folders replace the sample photos
 - [x] Owner controls: publish/download switches per file, category switches, bulk actions, counts
 - [x] Private admin dashboard: overview, sales, packages, materials, expenses, reports, settings (₱, saved cost snapshots, admin-only database access)
-- [x] Self-serve Customize page in admin (logo name, main texts, colors) + settings table; chat-based edits still available
+- [x] Full landing-page editor in admin (all section texts, FAQ, services, photo uploads, order, visibility, brand and colors); chat-based edits still available
 - [x] Bookings calendar in admin + Google Calendar sync
 - [x] Printable invoice per sale
 - [ ] Customer emails: booking confirmation, event reminder, invoice (blocked: needs your email sender domain)
