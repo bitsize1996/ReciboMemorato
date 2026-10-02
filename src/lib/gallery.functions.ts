@@ -7,8 +7,6 @@ const PAGE_SIZE = 24;
 
 const EVENT_FIELDS =
   "id, slug, name, event_date, location, cover_url, category_id, digitals_enabled, gif_enabled, singles_enabled";
-const LEGACY_EVENT_FIELDS =
-  "id, slug, name, event_date, location, cover_url, digitals_enabled, gif_enabled, singles_enabled";
 
 interface EventRowLite {
   id: string;
@@ -23,16 +21,8 @@ interface EventRowLite {
   singles_enabled: boolean;
 }
 
-function isMissingCategoryColumn(error: unknown): boolean {
-  const message = error && typeof error === "object" && "message" in error ? String(error.message) : String(error ?? "");
-  return /category_id|column .* does not exist/i.test(message);
-}
-
 async function loadEventsQuery(queryFactory: (fields: string) => any) {
-  const first = await queryFactory(EVENT_FIELDS);
-  if (!first.error || !isMissingCategoryColumn(first.error)) return first;
-  console.warn("Event category column is not available yet; using legacy event fields.");
-  return queryFactory(LEGACY_EVENT_FIELDS);
+  return queryFactory(EVENT_FIELDS);
 }
 
 function toGalleryEvent(row: EventRowLite): GalleryEvent {

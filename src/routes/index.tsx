@@ -110,7 +110,7 @@ function Index() {
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
   const h = s.homepage;
   const brand = `${s.brandLine1} ${s.brandLine2}`;
-  const withBrand = (text: string) => text.replaceAll("{brand}", brand);
+  const withBrand = (text: string | undefined) => (text ?? "").replaceAll("{brand}", brand);
 
   const sections: Record<SectionKey, ReactNode> = {
     hero: (
@@ -193,10 +193,11 @@ function Index() {
         </div>
         <div className="services-grid">
           {h.services.map((service, index) => {
-            const Icon = (serviceVisuals[index] ?? serviceVisuals[0]).icon;
+            const visual = serviceVisuals[index] ?? { icon: Camera, visual: "strip" };
+            const Icon = visual.icon;
             return (
               <article className="service-card" key={service.title}>
-                <MemoryVisual type={(serviceVisuals[index] ?? serviceVisuals[0]).visual} label={service.title} image={service.image} />
+                <MemoryVisual type={visual.visual} label={service.title} image={service.image} />
                 <div className="service-content">
                   <div className="service-meta"><span>{String(index + 1).padStart(2, "0")}</span><Icon aria-hidden="true" /></div>
                   <h3>{service.title}</h3>

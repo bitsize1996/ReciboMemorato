@@ -306,7 +306,7 @@ function AdminEventsPage() {
               <span>
                 {row.event_date ?? "No date"}
                 {row.location ? ` · ${row.location}` : ""}
-                {row.published ? "" : " · hidden"}{row.category_id ? ` · ${(categories.data ?? []).find((c: any) => c.id === row.category_id)?.name ?? "category"}` : ""}
+                 {row.published ? "" : " · hidden"}{row.category_id ? ` · ${String((categories.data ?? []).find((c: any) => c.id === row.category_id)?.name ?? "category")}` : ""}
               </span>
             </div>
             <div className="admin-actions">

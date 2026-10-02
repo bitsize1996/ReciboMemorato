@@ -162,7 +162,7 @@ export const uploadSiteImage = createServerFn({ method: "POST" })
     const ext = data.contentType === "image/jpeg" ? "jpg" : data.contentType.split("/")[1];
     const path = `site/${crypto.randomUUID()}.${ext}`;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.storage.from("event-covers").upload(path, bytes, { contentType: data.contentType, cacheControl: "3600" });
+    const { error } = await supabaseAdmin.storage.from("site-images").upload(path, bytes, { contentType: data.contentType, cacheControl: "3600" });
     if (error) throw new Error("Could not upload image");
-    return { url: supabaseAdmin.storage.from("event-covers").getPublicUrl(path).data.publicUrl };
+    return { url: `/api/public/site-image?path=${encodeURIComponent(path)}` };
   });
