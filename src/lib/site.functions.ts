@@ -143,3 +143,26 @@ export const siteSettingsQuery = queryOptions({
   queryKey: ["site-settings"],
   queryFn: () => getSiteSettings(),
 });
+
+/** Owner-only upload for homepage and logo photos. */
+export const uploadSiteImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({
+    name: z.string().max(200),
+    contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    base64: z.string().max(11_000_000),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: admin, error: roleError } = await (context.supabase as any).rpc("has_role", {
+      _user_id: context.userId, _role: "admin",
+    });
+    if (roleError || !admin) throw new Error("Forbidden");
+    const bytes = Buffer.from(data.base64, "base64");
+    if (bytes.length > 8 * 1024 * 1024) throw new Error("Image must be 8 MB or smaller.");
+    const ext = data.contentType === "image/jpeg" ? "jpg" : data.contentType.split("/")[1];
+    const path = `site/${crypto.randomUUID()}.${ext}`;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.storage.from("event-covers").upload(path, bytes, { contentType: data.contentType, cacheControl: "3600" });
+    if (error) throw new Error("Could not upload image");
+    return { url: supabaseAdmin.storage.from("event-covers").getPublicUrl(path).data.publicUrl };
+  });
