@@ -4,11 +4,13 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { DEFAULT_SETTINGS, HEX_RE, type SiteSettings } from "./site-settings";
+import { normalizeHome, SECTION_KEYS } from "./site-homepage";
 
 const ROW_FIELDS =
-  "brand_line1, brand_line2, brand_sub, hero_eyebrow, hero_title, hero_lead, hero_description, cta_label, messenger_url, final_title, final_tagline, color_accent, color_paper, color_ink";
+  "brand_line1, brand_line2, brand_sub, hero_eyebrow, hero_title, hero_lead, hero_description, cta_label, messenger_url, final_title, final_tagline, color_accent, color_paper, color_ink, homepage_content";
 
 interface SettingsRow {
+  homepage_content: unknown;
   brand_line1: string;
   brand_line2: string;
   brand_sub: string;
@@ -27,6 +29,7 @@ interface SettingsRow {
 
 function toSettings(row: SettingsRow): SiteSettings {
   return {
+    homepage: normalizeHome(row.homepage_content),
     brandLine1: row.brand_line1,
     brandLine2: row.brand_line2,
     brandSub: row.brand_sub,
@@ -64,6 +67,26 @@ export const getSiteSettings = createServerFn({ method: "GET" }).handler(
 );
 
 const schema = z.object({
+  homepage: z.object({
+    sectionOrder: z.array(z.enum(SECTION_KEYS)).length(SECTION_KEYS.length),
+    hiddenSections: z.array(z.enum(SECTION_KEYS)),
+    logoImage: z.string().max(1000),
+    heroBackImage: z.string().max(1000), heroReceiptImage: z.string().max(1000), heroFrontImage: z.string().max(1000),
+    heroStamp: z.string().max(200), heroBackCaption: z.string().max(200), heroReceiptNumber: z.string().max(200), heroReceiptFooter: z.string().max(200), heroFrontCaption: z.string().max(200),
+    heroSteps: z.array(z.string().max(200)).length(3),
+    problemHeading: z.string().max(500), problemParagraphs: z.array(z.string().max(1500)).length(2), problemQuote: z.string().max(500), problemClosing: z.string().max(500),
+    solutionEyebrow: z.string().max(200), solutionHeading: z.string().max(500), solutionParagraphs: z.array(z.string().max(1500)).length(2), solutionClosing: z.string().max(500), solutionButton: z.string().max(200),
+    servicesEyebrow: z.string().max(200), servicesHeading: z.string().max(500), servicesIntro: z.string().max(1000),
+    services: z.array(z.object({ title: z.string().max(200), tagline: z.string().max(300), body: z.string().max(1500), image: z.string().max(1000) })).length(5),
+    storyImage: z.string().max(1000), storyEyebrow: z.string().max(200), storyHeading: z.string().max(500), storyLead: z.string().max(1000), storyPoints: z.array(z.string().max(300)).length(4), storyBody: z.string().max(1500), storyClosing: z.string().max(500), storyImageCaption: z.string().max(200),
+    proofEyebrow: z.string().max(200), proofHeading: z.string().max(500), proofIntro: z.string().max(1000),
+    proofImages: z.array(z.object({ image: z.string().max(1000), caption: z.string().max(200) })).length(3),
+    archiveEyebrow: z.string().max(200), archiveHeading: z.string().max(500), archiveIntro: z.string().max(1000), archiveLink: z.string().max(200),
+    offerEyebrow: z.string().max(200), offerHeading: z.string().max(500), offerBody: z.string().max(1500), offerReceiptHeading: z.string().max(200),
+    faqEyebrow: z.string().max(200), faqHeading: z.string().max(500), faqs: z.array(z.object({ question: z.string().max(300), answer: z.string().max(2000) })).max(30),
+    finalEyebrow: z.string().max(200), finalLines: z.array(z.string().max(300)).length(4), finalSmall: z.string().max(300),
+    footerDescription: z.string().max(500), footerClosing: z.string().max(300),
+  }),
   brandLine1: z.string().min(1).max(40),
   brandLine2: z.string().min(1).max(40),
   brandSub: z.string().max(80),
@@ -94,6 +117,7 @@ export const saveSiteSettings = createServerFn({ method: "POST" })
     const { error } = await (context.supabase as any)
       .from("site_settings")
       .update({
+        homepage_content: data.homepage,
         brand_line1: data.brandLine1,
         brand_line2: data.brandLine2,
         brand_sub: data.brandSub,
