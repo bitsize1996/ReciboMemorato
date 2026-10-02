@@ -20,7 +20,7 @@ import { EventCard } from "./memories.index";
 import { listPublishedEvents } from "@/lib/gallery.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import { richText, type SiteSettings } from "@/lib/site-settings";
-import { type SectionKey } from "@/lib/site-homepage";
+import { normalizeHome, type SectionKey } from "@/lib/site-homepage";
 
 const eventsQuery = queryOptions({
   queryKey: ["events"],
@@ -84,7 +84,7 @@ function MessageButton({ url, label, light = false }: { url: string; label: stri
 function BrandMark({ s }: { s: SiteSettings }) {
   return (
     <a href="#top" className="brand-mark" aria-label={`${s.brandLine1} ${s.brandLine2} home`}>
-      {s.homepage.logoImage ? <img className="brand-logo-image" src={s.homepage.logoImage} alt={`${s.brandLine1} ${s.brandLine2}`} /> : null}
+      {s.homepage?.logoImage ? <img className="brand-logo-image" src={s.homepage.logoImage} alt={`${s.brandLine1} ${s.brandLine2}`} /> : null}
       <span>{s.brandLine1}</span>
       <span>{s.brandLine2}</span>
       <small>{s.brandSub}</small>
@@ -108,7 +108,8 @@ function MemoryVisual({ type, label, image }: { type: string; label: string; ima
 function Index() {
   const { data: events } = useSuspenseQuery(eventsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
-  const h = s.homepage;
+  // Previously cached settings may predate the homepage-content field.
+  const h = normalizeHome(s.homepage);
   const brand = `${s.brandLine1} ${s.brandLine2}`;
   const withBrand = (text: string | undefined) => (text ?? "").replaceAll("{brand}", brand);
 
