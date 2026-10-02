@@ -5,14 +5,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  adminListCategories,
   adminListEvents,
-  deleteEventCategory,
-  listEventCategories,
-  saveEventCategory,
-  uploadEventCover,
   claimAdmin,
+  deleteCategory,
   deleteEvent,
   getAdminStatus,
+  saveCategory,
   saveEvent,
   type EventInput,
 } from "@/lib/events.functions";
@@ -37,13 +36,13 @@ const EMPTY: EventInput = {
   event_date: "",
   location: "",
   cover_url: "",
+  category_id: null,
   drive_folder_id: "",
   digitals_folder_id: "",
   gif_folder_id: "",
   singles_folder_id: "",
   published: true,
   sort_order: 0,
-  category_id: null,
 };
 
 const FOLDER_FIELDS: [keyof EventInput, string][] = [
@@ -59,29 +58,34 @@ function extractFolderId(value: string): string {
   return match?.[1] ?? value.trim();
 }
 
+/** Shrinks a chosen photo to a web-friendly JPEG (max 1600px wide). */
+async function resizeToJpeg(file: File, maxWidth = 1600): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxWidth / bitmap.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("Could not process the image"))),
+      "image/jpeg",
+      0.85,
+    ),
+  );
+}
+
 function AdminEventsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<EventInput>(EMPTY);
   const [error, setError] = useState<string | null>(null);
-  const [categoryName, setCategoryName] = useState("");
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
 
   const status = useQuery({ queryKey: ["admin-status"], queryFn: () => getAdminStatus() });
   const isAdmin = status.data?.isAdmin ?? false;
-
-  const categories = useQuery({ queryKey: ["event-categories"], queryFn: () => listEventCategories() });
-
-  const categorySave = useMutation({
-    mutationFn: () => saveEventCategory({ data: { id: editingCategoryId, name: categoryName } }),
-    onSuccess: () => { setCategoryName(""); setEditingCategoryId(null); queryClient.invalidateQueries({ queryKey: ["event-categories"] }); },
-    onError: (e: Error) => setError(e.message),
-  });
-  const categoryRemove = useMutation({
-    mutationFn: (id: string) => deleteEventCategory({ data: { id } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["event-categories"] }),
-    onError: (e: Error) => setError(e.message),
-  });
 
   const events = useQuery({
     queryKey: ["admin-events"],
@@ -89,19 +93,54 @@ function AdminEventsPage() {
     enabled: isAdmin,
   });
 
+  const categories = useQuery({
+    queryKey: ["admin-categories"],
+    queryFn: () => adminListCategories(),
+    enabled: isAdmin,
+  });
+  const categoryList = categories.data?.categories ?? [];
+  const categoriesReady = categories.data?.ready ?? false;
+
+  const refreshCategories = () => {
+    queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+    queryClient.invalidateQueries({ queryKey: ["events"] });
+  };
+
+  const addCategory = useMutation({
+    mutationFn: (name: string) =>
+      saveCategory({
+        data: { name, sort_order: (categoryList.at(-1)?.sort_order ?? 0) + 10 },
+      }),
+    onSuccess: () => {
+      setNewCategory("");
+      setCategoryMessage(null);
+      refreshCategories();
+    },
+    onError: (e: Error) => setCategoryMessage(e.message),
+  });
+
+  const renameCategory = useMutation({
+    mutationFn: (input: { id: string; name: string }) => saveCategory({ data: input }),
+    onSuccess: () => {
+      setCategoryMessage(null);
+      refreshCategories();
+    },
+    onError: (e: Error) => setCategoryMessage(e.message),
+  });
+
+  const removeCategory = useMutation({
+    mutationFn: (id: string) => deleteCategory({ data: { id } }),
+    onSuccess: () => {
+      setCategoryMessage(null);
+      refreshCategories();
+      queryClient.invalidateQueries({ queryKey: ["admin-events"] });
+    },
+    onError: (e: Error) => setCategoryMessage(e.message),
+  });
+
   const claim = useMutation({
     mutationFn: () => claimAdmin(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-status"] }),
-  });
-
-  const coverUpload = useMutation({
-    mutationFn: async (file: File) => {
-      if (!form.id) throw new Error("Save the event before uploading its cover photo.");
-      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? ""); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
-      return uploadEventCover({ data: { eventId: form.id, fileName: file.name, contentType: file.type, base64 } });
-    },
-    onSuccess: ({ url }) => { set("cover_url", url); save.mutate({ ...form, cover_url: url }); },
-    onError: (e: Error) => setError(e.message),
   });
 
   const save = useMutation({
@@ -156,6 +195,38 @@ function AdminEventsPage() {
 
   const set = (key: keyof EventInput, value: string | boolean | number) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const uploadCover = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      let blob: Blob;
+      try {
+        blob = await resizeToJpeg(file);
+      } catch {
+        throw new Error("That image type isn't supported. Please use a JPG or PNG photo.");
+      }
+      const path = `covers/${crypto.randomUUID()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from("event-covers")
+        .upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
+      if (uploadError) {
+        throw new Error(
+          "The upload didn't work. The one-time cover photo setup may not have been run yet.",
+        );
+      }
+      const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
+      set("cover_url", data.publicUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const categoryName = (id: string | null | undefined) =>
+    categoryList.find((c) => c.id === id)?.name ?? null;
 
   return (
     <main className="admin-page">
@@ -217,17 +288,53 @@ function AdminEventsPage() {
               onChange={(e) => set("location", e.target.value)}
             />
           </label>
-          <label className="admin-wide">
-            Cover photo
-            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!form.id || coverUpload.isPending} onChange={(e) => { const file = e.target.files?.[0]; if (file) coverUpload.mutate(file); }} />
-            {form.cover_url ? <img src={form.cover_url} alt="" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 6 }} /> : null}
-            Cover photo address
-            <input
-              value={form.cover_url ?? ""}
-              placeholder="https://…"
-              onChange={(e) => set("cover_url", e.target.value)}
-            />
-          </label>
+          {categoriesReady ? (
+            <label>
+              Category
+              <select
+                value={form.category_id ?? ""}
+                onChange={(e) => set("category_id", e.target.value)}
+              >
+                <option value="">No category</option>
+                {categoryList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <div className="admin-wide">
+            <label>
+              Cover photo
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploading}
+                onChange={(e) => {
+                  void uploadCover(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {uploading ? <p>Uploading…</p> : null}
+            {form.cover_url ? (
+              <div style={{ marginTop: 8 }}>
+                <img
+                  src={form.cover_url}
+                  alt="Cover preview"
+                  style={{ display: "block", maxWidth: 240, maxHeight: 180, objectFit: "cover" }}
+                />
+                <button
+                  type="button"
+                  className="admin-link"
+                  onClick={() => set("cover_url", "")}
+                >
+                  Remove cover
+                </button>
+              </div>
+            ) : null}
+          </div>
           {FOLDER_FIELDS.map(([key, label]) => (
             <label key={key} className="admin-wide">
               {label}
@@ -244,13 +351,6 @@ function AdminEventsPage() {
               value={form.sort_order}
               onChange={(e) => set("sort_order", Number(e.target.value))}
             />
-          </label>
-          <label>
-            Event category
-            <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || "")}>
-              <option value="">Uncategorized</option>
-              {(categories.data ?? []).map((category: any) => <option key={category.id} value={category.id}>{category.name}</option>)}
-            </select>
           </label>
           <label className="admin-check">
             <input
@@ -274,25 +374,79 @@ function AdminEventsPage() {
         </div>
       </form>
 
-      <section className="admin-panel">
+      <section className="admin-list">
         <h2>Event categories</h2>
-        <p className="admin-hint">Create the categories you want to use to organize the Memory Archive.</p>
-        <div className="admin-actions">
-          <input value={categoryName} placeholder="Category name" onChange={(e) => setCategoryName(e.target.value)} />
-          <Button type="button" onClick={() => categorySave.mutate()} disabled={!categoryName.trim() || categorySave.isPending}>{editingCategoryId ? "Save category" : "Add category"}</Button>
-          {editingCategoryId ? <button type="button" className="admin-link" onClick={() => { setEditingCategoryId(null); setCategoryName(""); }}>Cancel</button> : null}
-        </div>
-        <div className="admin-list">
-          {(categories.data ?? []).map((category: any) => (
-            <div className="admin-row" key={category.id}>
-              <strong>{category.name}</strong>
-              <div className="admin-actions">
-                <button type="button" className="admin-link" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name); }}>Rename</button>
-                <button type="button" className="admin-link admin-danger" onClick={() => categoryRemove.mutate(category.id)}>Delete</button>
-              </div>
+        {categories.isPending ? <p>Loading…</p> : null}
+        {categories.data && !categoriesReady ? (
+          <p>
+            Categories need a one-time database setup before they can be used. Once it has been
+            run, reload this page.
+          </p>
+        ) : null}
+        {categoriesReady && categoryList.length === 0 ? (
+          <p>No categories yet. Add one below, for example Birthday or Wedding.</p>
+        ) : null}
+        {categoryList.map((c) => (
+          <div className="admin-row" key={c.id}>
+            <div>
+              <strong>{c.name}</strong>
             </div>
-          ))}
-        </div>
+            <div className="admin-actions">
+              <button
+                type="button"
+                className="admin-link"
+                onClick={() => {
+                  const name = window.prompt("Rename category", c.name);
+                  if (name && name.trim() && name.trim() !== c.name) {
+                    renameCategory.mutate({ id: c.id, name: name.trim() });
+                  }
+                }}
+              >
+                Rename
+              </button>
+              <button
+                type="button"
+                className="admin-link admin-danger"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Delete the "${c.name}" category? Its events are kept and just become uncategorized.`,
+                    )
+                  ) {
+                    removeCategory.mutate(c.id);
+                  }
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+        {categoriesReady ? (
+          <form
+            className="admin-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newCategory.trim()) addCategory.mutate(newCategory.trim());
+            }}
+          >
+            <label>
+              New category
+              <input
+                value={newCategory}
+                maxLength={60}
+                placeholder="e.g. Debut, Corporate, Christening"
+                onChange={(e) => setNewCategory(e.target.value)}
+              />
+            </label>
+            {categoryMessage ? <p className="auth-message">{categoryMessage}</p> : null}
+            <div className="admin-actions">
+              <Button type="submit" disabled={addCategory.isPending || !newCategory.trim()}>
+                Add category
+              </Button>
+            </div>
+          </form>
+        ) : null}
       </section>
 
       <section className="admin-list">
@@ -305,8 +459,9 @@ function AdminEventsPage() {
               <strong>{row.name}</strong>
               <span>
                 {row.event_date ?? "No date"}
+                {categoryName(row.category_id) ? ` · ${categoryName(row.category_id)}` : ""}
                 {row.location ? ` · ${row.location}` : ""}
-                 {row.published ? "" : " · hidden"}{row.category_id ? ` · ${String((categories.data ?? []).find((c: any) => c.id === row.category_id)?.name ?? "category")}` : ""}
+                {row.published ? "" : " · hidden"}
               </span>
             </div>
             <div className="admin-actions">
