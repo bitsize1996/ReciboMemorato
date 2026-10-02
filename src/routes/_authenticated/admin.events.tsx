@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   adminListEvents,
+  deleteEventCategory,
+  listEventCategories,
+  saveEventCategory,
+  uploadEventCover,
   claimAdmin,
   deleteEvent,
   getAdminStatus,
@@ -39,6 +43,7 @@ const EMPTY: EventInput = {
   singles_folder_id: "",
   published: true,
   sort_order: 0,
+  category_id: null,
 };
 
 const FOLDER_FIELDS: [keyof EventInput, string][] = [
@@ -59,9 +64,24 @@ function AdminEventsPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<EventInput>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const status = useQuery({ queryKey: ["admin-status"], queryFn: () => getAdminStatus() });
   const isAdmin = status.data?.isAdmin ?? false;
+
+  const categories = useQuery({ queryKey: ["event-categories"], queryFn: () => listEventCategories() });
+
+  const categorySave = useMutation({
+    mutationFn: () => saveEventCategory({ data: { id: editingCategoryId, name: categoryName } }),
+    onSuccess: () => { setCategoryName(""); setEditingCategoryId(null); queryClient.invalidateQueries({ queryKey: ["event-categories"] }); },
+    onError: (e: Error) => setError(e.message),
+  });
+  const categoryRemove = useMutation({
+    mutationFn: (id: string) => deleteEventCategory({ data: { id } }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["event-categories"] }),
+    onError: (e: Error) => setError(e.message),
+  });
 
   const events = useQuery({
     queryKey: ["admin-events"],
@@ -72,6 +92,16 @@ function AdminEventsPage() {
   const claim = useMutation({
     mutationFn: () => claimAdmin(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-status"] }),
+  });
+
+  const coverUpload = useMutation({
+    mutationFn: async (file: File) => {
+      if (!form.id) throw new Error("Save the event before uploading its cover photo.");
+      const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1] ?? ""); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
+      return uploadEventCover({ data: { eventId: form.id, fileName: file.name, contentType: file.type, base64 } });
+    },
+    onSuccess: ({ url }) => { set("cover_url", url); save.mutate({ ...form, cover_url: url }); },
+    onError: (e: Error) => setError(e.message),
   });
 
   const save = useMutation({
@@ -188,6 +218,9 @@ function AdminEventsPage() {
             />
           </label>
           <label className="admin-wide">
+            Cover photo
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={!form.id || coverUpload.isPending} onChange={(e) => { const file = e.target.files?.[0]; if (file) coverUpload.mutate(file); }} />
+            {form.cover_url ? <img src={form.cover_url} alt="" style={{ width: 160, height: 90, objectFit: "cover", borderRadius: 6 }} /> : null}
             Cover photo address
             <input
               value={form.cover_url ?? ""}
@@ -212,6 +245,13 @@ function AdminEventsPage() {
               onChange={(e) => set("sort_order", Number(e.target.value))}
             />
           </label>
+          <label>
+            Event category
+            <select value={form.category_id ?? ""} onChange={(e) => set("category_id", e.target.value || "")}>
+              <option value="">Uncategorized</option>
+              {(categories.data ?? []).map((category: any) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select>
+          </label>
           <label className="admin-check">
             <input
               type="checkbox"
@@ -234,6 +274,27 @@ function AdminEventsPage() {
         </div>
       </form>
 
+      <section className="admin-panel">
+        <h2>Event categories</h2>
+        <p className="admin-hint">Create the categories you want to use to organize the Memory Archive.</p>
+        <div className="admin-actions">
+          <input value={categoryName} placeholder="Category name" onChange={(e) => setCategoryName(e.target.value)} />
+          <Button type="button" onClick={() => categorySave.mutate()} disabled={!categoryName.trim() || categorySave.isPending}>{editingCategoryId ? "Save category" : "Add category"}</Button>
+          {editingCategoryId ? <button type="button" className="admin-link" onClick={() => { setEditingCategoryId(null); setCategoryName(""); }}>Cancel</button> : null}
+        </div>
+        <div className="admin-list">
+          {(categories.data ?? []).map((category: any) => (
+            <div className="admin-row" key={category.id}>
+              <strong>{category.name}</strong>
+              <div className="admin-actions">
+                <button type="button" className="admin-link" onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name); }}>Rename</button>
+                <button type="button" className="admin-link admin-danger" onClick={() => categoryRemove.mutate(category.id)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section className="admin-list">
         <h2>Your events</h2>
         {events.isPending ? <p>Loading…</p> : null}
@@ -245,7 +306,7 @@ function AdminEventsPage() {
               <span>
                 {row.event_date ?? "No date"}
                 {row.location ? ` · ${row.location}` : ""}
-                {row.published ? "" : " · hidden"}
+                 {row.published ? "" : " · hidden"}{row.category_id ? ` · ${String((categories.data ?? []).find((c: any) => c.id === row.category_id)?.name ?? "category")}` : ""}
               </span>
             </div>
             <div className="admin-actions">

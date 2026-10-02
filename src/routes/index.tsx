@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
@@ -19,6 +20,7 @@ import { EventCard } from "./memories.index";
 import { listPublishedEvents } from "@/lib/gallery.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import { richText, type SiteSettings } from "@/lib/site-settings";
+import { normalizeHome, type SectionKey } from "@/lib/site-homepage";
 
 const eventsQuery = queryOptions({
   queryKey: ["events"],
@@ -51,74 +53,10 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const services = [
-  {
-    number: "01",
-    icon: ReceiptText,
-    title: "Receipt Photobooth",
-    tagline: "Your memories, printed like a receipt.",
-    body: "A unique alternative to a conventional photobooth — named for its distinctive receipt-style photo output, with a retro-inspired booth where the camera and monitor are enclosed inside the box.",
-    visual: "receipt",
-  },
-  {
-    number: "02",
-    icon: Camera,
-    title: "Standard Photobooth",
-    tagline: "Classic photobooth fun, made tangible.",
-    body: "Our conventional photobooth experience. Photos are printed in 4×6 using a non-ink printing process, designed for more durable, longer-lasting keepsakes.",
-    visual: "strip",
-  },
-  {
-    number: "03",
-    icon: ArrowDown,
-    title: "High-Angle Photobooth",
-    tagline: "See the moment from a different angle.",
-    body: "Photos captured from a high/overhead angle — a more private, comfortable experience that helps guests relax, have fun, and pose without feeling shy in front of a camera.",
-    visual: "angle",
-  },
-  {
-    number: "04",
-    icon: Maximize2,
-    title: "Sintra Board Photo",
-    tagline: "Turn a memory into something you can display.",
-    body: "Your photo produced on Sintra board, available in A3 and A4 sizes — a physical keepsake you can put somewhere you'll actually see it.",
-    visual: "board",
-  },
-  {
-    number: "05",
-    icon: Sparkles,
-    title: "Original Instax Printing",
-    tagline: "Instant memories. Literally.",
-    body: "Physical photo prints made using original Instax materials — ready to hold, share, display, or keep in your memory box.",
-    visual: "instax",
-  },
-];
-
-const faqs = [
-  [
-    "What services do you offer?",
-    "We offer three main services: photobooths, photo Sintra board printing, and Instax printing. Under photobooths, we have three options: the Receipt Photobooth (receipt-style prints, retro booth), the Standard Photobooth (4×6 prints), and the High-Angle Photobooth (overhead perspective).",
-  ],
-  [
-    "What's the difference between the Receipt Photobooth and the Standard Photobooth?",
-    "The Receipt Photobooth is a unique alternative with a distinctive receipt-style photo output and a retro-inspired booth. The Standard Photobooth is our conventional experience, printing 4×6 photos with a non-ink printing process designed for more durable, longer-lasting keepsakes.",
-  ],
-  [
-    "Are your prints printed with ink?",
-    "Our Standard Photobooth uses a non-ink printing process rather than a conventional ink-based printer — designed to give you keepsakes that are more durable and longer-lasting.",
-  ],
-  [
-    "What is a High-Angle Photobooth?",
-    "It captures photos from a high/overhead angle for a different perspective. Because the camera is above you, it's a more private and comfortable experience — easier to relax and have fun without feeling shy.",
-  ],
-  [
-    "Do you offer Sintra board photos and Instax printing?",
-    "Yes! Sintra board photos are available in A3 and A4 sizes, and we offer Original Instax photo printing using original Instax materials.",
-  ],
-  [
-    "How do we book?",
-    "Simply send us a message with your event details (date, location, and the setup you're interested in). We'll guide you through the next steps — pricing is shared on request.",
-  ],
+const serviceVisuals = [
+  { icon: ReceiptText, visual: "receipt" }, { icon: Camera, visual: "strip" },
+  { icon: ArrowDown, visual: "angle" }, { icon: Maximize2, visual: "board" },
+  { icon: Sparkles, visual: "instax" },
 ];
 
 function Rich({ text }: { text: string }) {
@@ -146,6 +84,7 @@ function MessageButton({ url, label, light = false }: { url: string; label: stri
 function BrandMark({ s }: { s: SiteSettings }) {
   return (
     <a href="#top" className="brand-mark" aria-label={`${s.brandLine1} ${s.brandLine2} home`}>
+      {s.homepage?.logoImage ? <img className="brand-logo-image" src={s.homepage.logoImage} alt={`${s.brandLine1} ${s.brandLine2}`} /> : null}
       <span>{s.brandLine1}</span>
       <span>{s.brandLine2}</span>
       <small>{s.brandSub}</small>
@@ -153,7 +92,8 @@ function BrandMark({ s }: { s: SiteSettings }) {
   );
 }
 
-function MemoryVisual({ type, label }: { type: string; label: string }) {
+function MemoryVisual({ type, label, image }: { type: string; label: string; image?: string }) {
+  if (image) return <img className={`memory-visual memory-visual-${type}`} src={image} alt={label} loading="lazy" />;
   return (
     <div className={`memory-visual memory-visual-${type}`} aria-label={`${label} image placeholder`} role="img">
       <div className="memory-flash" />
@@ -168,6 +108,197 @@ function MemoryVisual({ type, label }: { type: string; label: string }) {
 function Index() {
   const { data: events } = useSuspenseQuery(eventsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
+  // Previously cached settings may predate the homepage-content field.
+  const h = normalizeHome(s.homepage);
+  const brand = `${s.brandLine1} ${s.brandLine2}`;
+  const withBrand = (text: string | undefined) => (text ?? "").replaceAll("{brand}", brand);
+
+  const sections: Record<SectionKey, ReactNode> = {
+    hero: (
+      <section className="hero-section" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <p className="eyebrow">{s.heroEyebrow}</p>
+          <h1 id="hero-title">
+            <Rich text={s.heroTitle} />
+          </h1>
+          <p className="hero-lead">{s.heroLead}</p>
+          <p className="hero-description">{s.heroDescription}</p>
+          <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
+        </div>
+
+        <div className="hero-art" aria-label="A collage of physical memory keepsakes">
+          <div className="hero-stamp">{h.heroStamp}</div>
+          <div className="hero-card hero-card-back">
+            <MemoryVisual type="instax" label="Instax keepsake" image={h.heroBackImage} />
+            <p>{h.heroBackCaption}</p>
+          </div>
+          <div className="hero-receipt">
+            <div className="receipt-brand">{s.brandLine1} {s.brandLine2}</div>
+            <p>{h.heroReceiptNumber}</p>
+            <MemoryVisual type="receipt" label="Receipt photo strip" image={h.heroReceiptImage} />
+            <div className="receipt-total"><span>MEMORIES</span><span>PRICELESS</span></div>
+            <div className="barcode" aria-hidden="true" />
+            <small>{h.heroReceiptFooter}</small>
+          </div>
+          <div className="hero-card hero-card-front">
+            <MemoryVisual type="strip" label="Photobooth keepsake" image={h.heroFrontImage} />
+            <p>{h.heroFrontCaption}</p>
+          </div>
+        </div>
+
+        <div className="hero-steps" aria-label="How it works">
+          <span><Camera /> {h.heroSteps[0]}</span>
+          <span><ReceiptText /> {h.heroSteps[1]}</span>
+          <span><Heart /> {h.heroSteps[2]}</span>
+        </div>
+      </section>
+    ),
+    problem: (
+      <section className="problem-section">
+        <div className="section-number">01 / THE WHY</div>
+        <div className="problem-copy">
+          <h2><Rich text={h.problemHeading} /></h2>
+          <div className="problem-body">
+            <p>{h.problemParagraphs[0]}</p>
+            <p>{h.problemParagraphs[1]}</p>
+          </div>
+          <blockquote>{h.problemQuote}</blockquote>
+          <p className="problem-close">{withBrand(h.problemClosing)}</p>
+        </div>
+      </section>
+    ),
+    solution: (
+      <section className="solution-band">
+        <div className="solution-inner">
+          <div>
+            <p className="eyebrow">{h.solutionEyebrow}</p>
+            <h2><Rich text={h.solutionHeading} /></h2>
+          </div>
+          <div className="solution-text">
+            <p>{withBrand(h.solutionParagraphs[0])}</p>
+            <p>{h.solutionParagraphs[1]}</p>
+            <strong>{h.solutionClosing}</strong>
+            <MessageButton url={s.messengerUrl} label={h.solutionButton} light />
+          </div>
+        </div>
+      </section>
+    ),
+    services: (
+      <section id="services" className="services-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">{h.servicesEyebrow}</p>
+            <h2><Rich text={h.servicesHeading} /></h2>
+          </div>
+          <p>{h.servicesIntro}</p>
+        </div>
+        <div className="services-grid">
+          {h.services.map((service, index) => {
+            const visual = serviceVisuals[index] ?? { icon: Camera, visual: "strip" };
+            const Icon = visual.icon;
+            return (
+              <article className="service-card" key={service.title}>
+                <MemoryVisual type={visual.visual} label={service.title} image={service.image} />
+                <div className="service-content">
+                  <div className="service-meta"><span>{String(index + 1).padStart(2, "0")}</span><Icon aria-hidden="true" /></div>
+                  <h3>{service.title}</h3>
+                  <strong>{service.tagline}</strong>
+                  <p>{service.body}</p>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ),
+    story: (
+      <section id="story" className="story-section">
+        <div className="founder-visual">
+          <MemoryVisual type="founders" label="The siblings behind the brand" image={h.storyImage} />
+          <span>{h.storyImageCaption}</span>
+        </div>
+        <div className="story-copy">
+          <p className="eyebrow">{withBrand(h.storyEyebrow)}</p>
+          <h2><Rich text={h.storyHeading} /></h2>
+          <p>{h.storyLead}</p>
+          <ul>
+            {h.storyPoints.map((point, i) => <li key={i}>{point}</li>)}
+          </ul>
+          <p>{h.storyBody}</p>
+          <strong>{h.storyClosing}</strong>
+        </div>
+      </section>
+    ),
+    proof: (
+      <section className="proof-section">
+        <div className="section-heading proof-heading">
+          <div><p className="eyebrow">{h.proofEyebrow}</p><h2><Rich text={h.proofHeading} /></h2></div>
+          <p>{h.proofIntro}</p>
+        </div>
+        <div className="proof-gallery" aria-label="Customer memory gallery">
+          {h.proofImages.map((item, index) => (
+            <figure key={index}>
+              <MemoryVisual type={["receipt", "angle", "instax"][index] ?? "receipt"} label={`Customer memory ${index + 1}`} image={item.image} />
+              <figcaption>{item.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+    ),
+    archive: (
+      <section className="archive-teaser" id="archive">
+        <p className="eyebrow">{h.archiveEyebrow}</p>
+        <h2><Rich text={h.archiveHeading} /></h2>
+        <p>{h.archiveIntro}</p>
+        <div className="event-grid">
+          {events.slice(0, 3).map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
+        <Link to="/memories" className="teaser-link">
+          {h.archiveLink} <ArrowUpRight aria-hidden="true" />
+        </Link>
+      </section>
+    ),
+    offer: (
+      <section className="offer-section">
+        <div className="offer-copy">
+          <p className="eyebrow">{h.offerEyebrow}</p>
+          <h2><Rich text={h.offerHeading} /></h2>
+          <p>{withBrand(h.offerBody)}</p>
+          <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
+        </div>
+        <div className="offer-receipt">
+          <header><span>{s.brandLine1} {s.brandLine2}</span><small>{h.offerReceiptHeading}</small></header>
+          {h.services.map((service) => <div key={service.title}><Check aria-hidden="true" /><span>{service.title}</span></div>)}
+          <footer><span>{s.finalTagline}</span><div className="barcode" /></footer>
+        </div>
+      </section>
+    ),
+    faqs: (
+      <section id="faqs" className="faq-section">
+        <div className="faq-intro"><p className="eyebrow">{h.faqEyebrow}</p><h2><Rich text={h.faqHeading} /></h2></div>
+        <div className="faq-list">
+          {h.faqs.map(({ question, answer }, index) => (
+            <details key={question} open={index === 0}>
+              <summary><span>{String(index + 1).padStart(2, "0")}</span>{question}<ChevronDown aria-hidden="true" /></summary>
+              <p>{answer}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+    ),
+    final: (
+      <section className="final-section">
+        <p className="eyebrow">{h.finalEyebrow}</p>
+        <h2><Rich text={s.finalTitle} /></h2>
+        <div className="final-lines">{h.finalLines.map((line, i) => <span key={i}>{line}</span>)}</div>
+        <p className="final-tagline">{s.finalTagline}</p>
+        <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
+        <small>{h.finalSmall}</small>
+      </section>
+    ),
+  };
 
   return (
     <main id="top" className="overflow-hidden bg-background text-foreground">
@@ -184,191 +315,14 @@ function Index() {
         </a>
       </header>
 
-      <section className="hero-section" aria-labelledby="hero-title">
-        <div className="hero-copy">
-          <p className="eyebrow">{s.heroEyebrow}</p>
-          <h1 id="hero-title">
-            <Rich text={s.heroTitle} />
-          </h1>
-          <p className="hero-lead">{s.heroLead}</p>
-          <p className="hero-description">{s.heroDescription}</p>
-          <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
-        </div>
-
-        <div className="hero-art" aria-label="A collage of physical memory keepsakes">
-          <div className="hero-stamp">KEEP<br />THIS<br />MOMENT</div>
-          <div className="hero-card hero-card-back">
-            <MemoryVisual type="instax" label="Instax keepsake" />
-            <p>the good days</p>
-          </div>
-          <div className="hero-receipt">
-            <div className="receipt-brand">{s.brandLine1} {s.brandLine2}</div>
-            <p>MEMORY PROOF #0921</p>
-            <MemoryVisual type="receipt" label="Receipt photo strip" />
-            <div className="receipt-total"><span>MEMORIES</span><span>PRICELESS</span></div>
-            <div className="barcode" aria-hidden="true" />
-            <small>THANK YOU FOR REMEMBERING</small>
-          </div>
-          <div className="hero-card hero-card-front">
-            <MemoryVisual type="strip" label="Photobooth keepsake" />
-            <p>proof we were here ♡</p>
-          </div>
-        </div>
-
-        <div className="hero-steps" aria-label="How it works">
-          <span><Camera /> Take the photo.</span>
-          <span><ReceiptText /> Get the proof.</span>
-          <span><Heart /> Keep the memory.</span>
-        </div>
-      </section>
-
-      <section className="problem-section">
-        <div className="section-number">01 / THE WHY</div>
-        <div className="problem-copy">
-          <h2>Because screenshots aren't the same as <em>keepsakes.</em></h2>
-          <div className="problem-body">
-            <p>We take hundreds of photos. We save them in our phones. We tell ourselves we'll look at them again someday.</p>
-            <p>But some memories deserve more than being buried in your camera roll.</p>
-          </div>
-          <blockquote>“I was there. This happened.<br />And it meant something.”</blockquote>
-          <p className="problem-close">That's what {s.brandLine1} {s.brandLine2} is for.</p>
-        </div>
-      </section>
-
-      <section className="solution-band">
-        <div className="solution-inner">
-          <div>
-            <p className="eyebrow">A little souvenir from a big moment</p>
-            <h2>A photobooth experience made for memories worth keeping.</h2>
-          </div>
-          <div className="solution-text">
-            <p>{s.brandLine1} {s.brandLine2} brings together the fun of a photobooth with the feeling of receiving a little souvenir from a moment you never want to forget.</p>
-            <p>Whether it's a birthday, celebration, event, hangout, or simply a day worth remembering, we turn your moments into physical keepsakes.</p>
-            <strong>Not just photos. Proofs of the moments you lived.</strong>
-            <MessageButton url={s.messengerUrl} label="I want my memory proof" light />
-          </div>
-        </div>
-      </section>
-
-      <section id="services" className="services-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">What you get</p>
-            <h2>Choose your way of keeping the memory.</h2>
-          </div>
-          <p>Five ways to make a moment physical — each one designed to be held, shared, displayed, and found again.</p>
-        </div>
-        <div className="services-grid">
-          {services.map((service) => {
-            const Icon = service.icon;
-            return (
-              <article className="service-card" key={service.title}>
-                <MemoryVisual type={service.visual} label={service.title} />
-                <div className="service-content">
-                  <div className="service-meta"><span>{service.number}</span><Icon aria-hidden="true" /></div>
-                  <h3>{service.title}</h3>
-                  <strong>{service.tagline}</strong>
-                  <p>{service.body}</p>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id="story" className="story-section">
-        <div className="founder-visual">
-          <MemoryVisual type="founders" label="The siblings behind the brand" />
-          <span>THE BITSIZE SIBS</span>
-        </div>
-        <div className="story-copy">
-          <p className="eyebrow">Why {s.brandLine1} {s.brandLine2}?</p>
-          <h2>We believe memories shouldn't disappear into your gallery.</h2>
-          <p>There's something different about holding a photo in your hands.</p>
-          <ul>
-            <li>Stick it on your wall.</li>
-            <li>Put it inside your wallet.</li>
-            <li>Keep it in your journal.</li>
-            <li>Give it to someone you love.</li>
-          </ul>
-          <p>Years from now, you can find it again and remember exactly how that moment felt.</p>
-          <strong>That's the little magic we're trying to keep.</strong>
-        </div>
-      </section>
-
-      <section className="proof-section">
-        <div className="section-heading proof-heading">
-          <div><p className="eyebrow">Real moments, real keepsakes</p><h2>Proof that the memories were worth keeping.</h2></div>
-          <p>Customer moments, event snaps, and keepsakes — shared as they really happened.</p>
-        </div>
-        <div className="proof-gallery" aria-label="Customer memory gallery">
-          {["receipt", "angle", "instax"].map((type, index) => (
-            <figure key={type}>
-              <MemoryVisual type={type} label={`Customer memory ${index + 1}`} />
-              <figcaption>{["Held onto", "From above", "Made to keep"][index]}</figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
-
-      <section className="archive-teaser" id="archive">
-        <p className="eyebrow">Memory archive</p>
-        <h2>Receipts from moments that happened.</h2>
-        <p>
-          Browse memories from our past events — from printed keepsakes to digital photos, GIFs, and
-          singles.
-        </p>
-        <div className="event-grid">
-          {events.slice(0, 3).map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
-        <Link to="/memories" className="teaser-link">
-          Open the memory archive <ArrowUpRight aria-hidden="true" />
-        </Link>
-      </section>
-
-      <section className="offer-section">
-        <div className="offer-copy">
-          <p className="eyebrow">Your next memory</p>
-          <h2>Make it one you can actually keep.</h2>
-          <p>Whether you're celebrating with friends, marking a milestone, or simply creating memories together, {s.brandLine1} {s.brandLine2} gives you something to take home.</p>
-          <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
-        </div>
-        <div className="offer-receipt">
-          <header><span>{s.brandLine1} {s.brandLine2}</span><small>YOUR EXPERIENCE CAN INCLUDE</small></header>
-          {services.map((service) => <div key={service.title}><Check aria-hidden="true" /><span>{service.title}</span></div>)}
-          <footer><span>{s.finalTagline}</span><div className="barcode" /></footer>
-        </div>
-      </section>
-
-      <section id="faqs" className="faq-section">
-        <div className="faq-intro"><p className="eyebrow">Good to know</p><h2>Frequently asked questions.</h2></div>
-        <div className="faq-list">
-          {faqs.map(([question, answer], index) => (
-            <details key={question} open={index === 0}>
-              <summary><span>{String(index + 1).padStart(2, "0")}</span>{question}<ChevronDown aria-hidden="true" /></summary>
-              <p>{answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      <section className="final-section">
-        <p className="eyebrow">One last reminder</p>
-        <h2><Rich text={s.finalTitle} /></h2>
-        <div className="final-lines"><span>Print the laugh.</span><span>Keep the pose.</span><span>Save the little moment.</span><span>Take home the proof.</span></div>
-        <p className="final-tagline">{s.finalTagline}</p>
-        <MessageButton url={s.messengerUrl} label={s.ctaLabel} />
-        <small>Let's make something worth keeping.</small>
-      </section>
+      {h.sectionOrder.map((key) => h.hiddenSections.includes(key) ? null : <div className="contents" key={key}>{sections[key]}</div>)}
 
       <footer className="site-footer" id="contact">
         <BrandMark s={s} />
-        <p>Photobooth · Receipt Photobooth · High Angle · Sintra Board · Original Instax Printing</p>
+        <p>{h.footerDescription}</p>
         <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><a href="#faqs">FAQs</a><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
         <a href={s.messengerUrl} className="footer-social" target="_blank" rel="noreferrer" aria-label="Find us on social media"><Instagram aria-hidden="true" /></a>
-        <small>© 2026 {s.brandLine1} {s.brandLine2}. Made for moments worth keeping.</small>
+        <small>© 2026 {s.brandLine1} {s.brandLine2}. {h.footerClosing}</small>
       </footer>
     </main>
   );

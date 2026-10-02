@@ -1,0 +1,2 @@
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS homepage_content jsonb NOT NULL DEFAULT '{}'::jsonb;
+COMMENT ON COLUMN public.site_settings.homepage_content IS 'Editable landing-page copy, images, and section visibility; missing keys use application defaults.';

@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS public.event_categories (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, slug text NOT NULL UNIQUE, created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT ON public.event_categories TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.event_categories TO authenticated;
+GRANT ALL ON public.event_categories TO service_role;
+ALTER TABLE public.event_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public reads event categories" ON public.event_categories FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Admins insert event categories" ON public.event_categories FOR INSERT TO authenticated WITH CHECK (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins update event categories" ON public.event_categories FOR UPDATE TO authenticated USING (public.has_role(auth.uid(), 'admin')) WITH CHECK (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Admins delete event categories" ON public.event_categories FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS category_id uuid REFERENCES public.event_categories(id) ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS events_category_id_idx ON public.events(category_id);

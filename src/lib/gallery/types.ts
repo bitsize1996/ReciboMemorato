@@ -32,6 +32,8 @@ export interface GalleryEvent {
   eventDate: string | null;
   location: string | null;
   coverUrl: string | null;
+  categoryId: string | null;
+  categoryName?: string | null;
   isSample: boolean;
   /** Only the categories the owner has switched on for this event. */
   categories: MediaCategory[];

@@ -1,7 +1,9 @@
 // Client-safe site customization types and defaults.
 // The live values come from the site_settings table (see src/lib/site.functions.ts).
+import { DEFAULT_HOME, type HomeContent } from "./site-homepage";
 
 export interface SiteSettings {
+  homepage: HomeContent;
   brandLine1: string;
   brandLine2: string;
   brandSub: string;
@@ -19,6 +21,7 @@ export interface SiteSettings {
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
+  homepage: DEFAULT_HOME,
   brandLine1: "RECIBO",
   brandLine2: "MEMORATO",
   brandSub: "by the bitsize sibs",
