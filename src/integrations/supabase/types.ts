@@ -14,9 +14,31 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           archived: boolean
+          category_id: string | null
           cover_url: string | null
           created_at: string
           digitals_enabled: boolean
@@ -39,6 +61,7 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          category_id?: string | null
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -61,6 +84,7 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          category_id?: string | null
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -81,7 +105,15 @@ export type Database = {
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "event_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       materials: {
         Row: {
