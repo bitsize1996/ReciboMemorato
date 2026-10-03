@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useMaterials } from "@/lib/admin-data";
 import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel } from "@/lib/finance";
 import { useServerFn } from "@tanstack/react-start";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
@@ -27,6 +28,8 @@ function SaleDetail() {
     },
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
+  const materials = useMaterials();
+  const [mat, setMat] = useState<null | { material_id: string; quantity: string }>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const syncFn = useServerFn(syncSaleToGoogle);
@@ -36,6 +39,9 @@ function SaleDetail() {
   if (!sale.data) return <div className="adm-page"><p>Sale not found.</p><Link to="/admin/sales">Back to sales</Link></div>;
   const s = sale.data;
   const t = saleTotals(s);
+  const share = (amount: number) => (t.netRevenue > 0 ? (amount / t.netRevenue) * 100 : 0);
+  const expenseByCategory = s.sale_expenses.reduce<Record<string, number>>(
+    (a, x) => ({ ...a, [x.category]: (a[x.category] ?? 0) + n(x.amount) }), {});
 
   async function addExpense(e: React.FormEvent) {
     e.preventDefault();
@@ -46,6 +52,19 @@ function SaleDetail() {
     });
     if (error) return setErr(error.message);
     setExp(null); refresh();
+  }
+
+  async function addMaterial(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mat) return;
+    const m = materials.data?.find((x) => x.id === mat.material_id);
+    if (!m || n(mat.quantity) <= 0) return setErr("Choose a material and a quantity.");
+    const { error } = await supabase.from("sale_materials").insert({
+      sale_id: s.id, material_id: m.id, material_name_snapshot: m.name,
+      quantity: n(mat.quantity), unit_cost_snapshot: n(m.current_unit_cost),
+    });
+    if (error) return setErr(error.message);
+    setMat(null); setErr(null); refresh();
   }
 
   async function update(patch: { payment_status?: typeof s.payment_status; amount_paid?: number }) {
@@ -132,7 +151,23 @@ function SaleDetail() {
       </section>
 
       <section className="adm-card">
-        <h2>Material costs</h2>
+        <div className="adm-head"><h2>Material costs</h2>
+          <Button size="sm" onClick={() => setMat({ material_id: "", quantity: "1" })}>+ Add material</Button>
+        </div>
+        {mat && (
+          <form className="adm-form" onSubmit={addMaterial}>
+            <label>Material
+              <select required value={mat.material_id} onChange={(e) => setMat({ ...mat, material_id: e.target.value })}>
+                <option value="">Choose material…</option>
+                {(materials.data ?? []).filter((m) => m.active).map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} — {peso(m.current_unit_cost)}/{m.unit} ({n(m.current_stock)} in stock)</option>
+                ))}
+              </select>
+            </label>
+            <label>Quantity<input type="number" step="0.01" min="0" value={mat.quantity} onChange={(e) => setMat({ ...mat, quantity: e.target.value })} /></label>
+            <div className="adm-row"><Button type="submit">Add to sale</Button><Button type="button" variant="outline" onClick={() => setMat(null)}>Cancel</Button></div>
+          </form>
+        )}
         {!s.sale_materials.length ? <p className="adm-empty">No materials recorded.</p> : (
           <table className="adm-table">
             <thead><tr><th>Material</th><th>Qty</th><th>Cost/unit (saved)</th><th>Total</th><th /></tr></thead>
@@ -143,6 +178,7 @@ function SaleDetail() {
           </table>
         )}
         <p><strong>Total materials: {peso(t.materials)}</strong></p>
+        <p className="adm-hint">The materials used here are taken out of your inventory automatically. Removing one, or cancelling the sale, puts it back.</p>
       </section>
 
       <section className="adm-card">
@@ -170,6 +206,45 @@ function SaleDetail() {
           </table>
         )}
         <p><strong>Total other expenses: {peso(t.expenses)}</strong></p>
+      </section>
+
+      <section className="adm-card">
+        <h2>Where the money goes</h2>
+        {t.netRevenue <= 0 ? (
+          <p className="adm-empty">Add a selling price to see the breakdown.</p>
+        ) : (
+          <>
+            <div
+              role="img"
+              aria-label={`Materials ${share(t.materials).toFixed(0)}%, other expenses ${share(t.expenses).toFixed(0)}%, profit ${Math.max(100 - share(t.totalCost), 0).toFixed(0)}%`}
+              style={{ display: "flex", height: 18, borderRadius: 9, overflow: "hidden", background: "#e2e8f0", margin: "8px 0" }}
+            >
+              <div style={{ width: `${Math.min(share(t.materials), 100)}%`, background: "#b7791f" }} />
+              <div style={{ width: `${Math.min(share(t.expenses), Math.max(100 - share(t.materials), 0))}%`, background: "#2b6cb0" }} />
+              <div style={{ width: `${Math.max(100 - share(t.totalCost), 0)}%`, background: "#2f855a" }} />
+            </div>
+            <p className="adm-hint">
+              <span style={{ color: "#b7791f" }}>■</span> Materials &nbsp;
+              <span style={{ color: "#2b6cb0" }}>■</span> Other expenses &nbsp;
+              <span style={{ color: "#2f855a" }}>■</span> Profit
+            </p>
+            <table className="adm-table">
+              <thead><tr><th>Where it goes</th><th>Amount</th><th>Share of net revenue</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Net revenue</strong></td><td><strong>{peso(t.netRevenue)}</strong></td><td>100%</td></tr>
+                <tr><td><strong>Materials</strong></td><td>{peso(t.materials)}</td><td>{share(t.materials).toFixed(1)}%</td></tr>
+                {s.sale_materials.map((m) => (
+                  <tr key={m.id}><td>&nbsp;&nbsp;↳ {m.material_name_snapshot} ({n(m.quantity)} × {peso(m.unit_cost_snapshot)})</td><td>{peso(m.total_cost)}</td><td>{share(n(m.total_cost)).toFixed(1)}%</td></tr>
+                ))}
+                <tr><td><strong>Other expenses</strong></td><td>{peso(t.expenses)}</td><td>{share(t.expenses).toFixed(1)}%</td></tr>
+                {Object.entries(expenseByCategory).map(([category, amount]) => (
+                  <tr key={category}><td>&nbsp;&nbsp;↳ {category}</td><td>{peso(amount)}</td><td>{share(amount).toFixed(1)}%</td></tr>
+                ))}
+                <tr><td><strong>Net profit</strong></td><td className={t.profit < 0 ? "adm-neg" : ""}><strong>{peso(t.profit)}</strong></td><td>{share(t.profit).toFixed(1)}%</td></tr>
+              </tbody>
+            </table>
+          </>
+        )}
       </section>
 
       <section className="adm-card adm-profit">

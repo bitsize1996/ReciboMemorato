@@ -95,3 +95,59 @@ export function sumSales(rows: { totals: { netRevenue: number; totalCost: number
   );
 }
 
+
+export const EXPENSE_KINDS = [
+  ["one_time", "One-time"],
+  ["recurring", "Recurring"],
+] as const;
+
+export const RECURRENCES = [
+  ["weekly", "Every week"],
+  ["monthly", "Every month"],
+  ["yearly", "Every year"],
+] as const;
+
+export const recurrenceLabel = (r: string | null | undefined) =>
+  RECURRENCES.find(([k]) => k === r)?.[1] ?? "";
+
+type ExpenseLike = {
+  expense_date: string;
+  kind?: string | null;
+  recurrence?: string | null;
+  ends_on?: string | null;
+};
+
+function addPeriod(start: Date, recurrence: string, k: number): Date {
+  const y = start.getFullYear();
+  const m = start.getMonth();
+  const d = start.getDate();
+  if (recurrence === "weekly") return new Date(y, m, d + 7 * k);
+  const months = recurrence === "yearly" ? 12 * k : k;
+  const target = new Date(y, m + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  return new Date(target.getFullYear(), target.getMonth(), Math.min(d, lastDay));
+}
+
+/** How many times an expense falls inside a date range (a recurring one repeats). */
+export function expenseOccurrences(e: ExpenseLike, range: { from: string; to: string }): number {
+  if (e.kind !== "recurring" || !e.recurrence) return inRange(e.expense_date, range) ? 1 : 0;
+  const [y, m, d] = e.expense_date.split("-").map(Number);
+  const start = new Date(y!, (m ?? 1) - 1, d ?? 1);
+  const upper = [range.to || iso(new Date()), e.ends_on || ""].filter(Boolean).sort()[0]!;
+  let count = 0;
+  for (let k = 0; k < 1200; k += 1) {
+    const day = iso(addPeriod(start, e.recurrence, k));
+    if (day > upper) break;
+    if (!range.from || day >= range.from) count += 1;
+  }
+  return count;
+}
+
+export const MOVEMENT_LABELS: Record<string, string> = {
+  sale: "Used in a sale",
+  restock: "Restock",
+  adjustment: "Adjustment",
+};
+
+/** Value of the stock on hand at today's cost per unit. */
+export const stockValue = (stock: unknown, unitCost: unknown) => Math.max(n(stock), 0) * n(unitCost);

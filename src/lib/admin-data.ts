@@ -39,12 +39,26 @@ export function usePackages() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("packages")
-        .select("*, package_materials(id, quantity, material_id, materials(name, unit, current_unit_cost))")
+        .select("*, package_materials(id, quantity, material_id, materials(name, unit, current_unit_cost, current_stock))")
         .order("name");
       if (error) throw error;
       return data ?? [];
     },
   });
+}
+
+export interface ExpenseRow {
+  id: string;
+  sale_id: string | null;
+  category: string;
+  description: string;
+  amount: number;
+  expense_date: string;
+  notes: string | null;
+  kind: string | null;
+  recurrence: string | null;
+  ends_on: string | null;
+  sales: { id: string; sale_number: number; customer_name: string } | null;
 }
 
 export function useExpenses() {
@@ -56,7 +70,7 @@ export function useExpenses() {
         .select("*, sales(id, sale_number, customer_name)")
         .order("expense_date", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as unknown as ExpenseRow[];
     },
   });
 }

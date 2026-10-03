@@ -116,6 +116,14 @@ function PackagesPage() {
             const mat = p.package_materials.reduce((a, pm) => a + n(pm.quantity) * n(pm.materials?.current_unit_cost), 0);
             const other = n(p.estimated_other_costs);
             const profit = n(p.selling_price) - mat - other;
+            // How many bookings the current stock could cover, and what runs out first.
+            const limits = p.package_materials
+              .filter((pm) => n(pm.quantity) > 0)
+              .map((pm) => ({
+                name: pm.materials?.name ?? "Material",
+                bookings: Math.floor(Math.max(n(pm.materials?.current_stock), 0) / n(pm.quantity)),
+              }));
+            const tightest = limits.length ? limits.reduce((a, b) => (b.bookings < a.bookings ? b : a)) : null;
             return (
               <article className="adm-card" key={p.id}>
                 <h2>{p.name} {!p.active && <small>(inactive)</small>}</h2>
@@ -128,6 +136,26 @@ function PackagesPage() {
                   <dt>Estimated profit</dt><dd className={profit < 0 ? "adm-neg" : ""}>{peso(profit)}</dd>
                   <dt>Estimated margin</dt><dd>{pct(margin(profit, n(p.selling_price)))}</dd>
                 </dl>
+                {p.package_materials.length > 0 && (
+                  <table className="adm-table">
+                    <thead><tr><th>Material</th><th>Per booking</th><th>Cost</th><th>In stock</th></tr></thead>
+                    <tbody>{p.package_materials.map((pm) => (
+                      <tr key={pm.id}>
+                        <td>{pm.materials?.name ?? "—"}</td>
+                        <td>{n(pm.quantity)} {pm.materials?.unit}</td>
+                        <td>{peso(n(pm.quantity) * n(pm.materials?.current_unit_cost))}</td>
+                        <td className={n(pm.materials?.current_stock) < n(pm.quantity) ? "adm-neg" : ""}>{n(pm.materials?.current_stock)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                )}
+                {tightest && (
+                  <p className={tightest.bookings === 0 ? "adm-neg" : "adm-hint"}>
+                    {tightest.bookings === 0
+                      ? `Not enough ${tightest.name} in stock for even one booking.`
+                      : `Your stock covers about ${tightest.bookings} booking${tightest.bookings === 1 ? "" : "s"} (${tightest.name} runs out first).`}
+                  </p>
+                )}
                 <p className="adm-hint">Estimates use today's material costs.</p>
                 <div className="adm-actions">
                   <button onClick={() => setForm({

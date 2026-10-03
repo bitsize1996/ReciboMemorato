@@ -192,7 +192,15 @@ function SaleForm({ onDone }: { onDone: () => void }) {
             </select>
             <input type="number" step="0.01" min="0" value={l.quantity} aria-label="Quantity" onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, quantity: e.target.value } : x))} />
             <input type="number" step="0.01" min="0" value={l.unit_cost} aria-label="Cost per unit" onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unit_cost: e.target.value } : x))} />
-            <span>{peso(n(l.quantity) * n(l.unit_cost))}</span>
+            <span>
+              {peso(n(l.quantity) * n(l.unit_cost))}
+              {(() => {
+                const stock = materials.data?.find((x) => x.id === l.material_id)?.current_stock;
+                return l.material_id && stock !== undefined && n(stock) < n(l.quantity)
+                  ? <small className="adm-neg"> · only {n(stock)} in stock</small>
+                  : null;
+              })()}
+            </span>
             <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))}>Remove</button>
           </div>
         ))}
