@@ -19,25 +19,31 @@ export type Database = {
           created_at: string
           id: string
           name: string
-          slug: string
+          slug: string | null
+          sort_order: number
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
-          slug: string
+          slug?: string | null
+          sort_order?: number
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
-          slug?: string
+          slug?: string | null
+          sort_order?: number
         }
         Relationships: []
       }
       events: {
         Row: {
           archived: boolean
+          auto_downloads: boolean
+          auto_publish: boolean
+          auto_sync: boolean
           category_id: string | null
           cover_url: string | null
           created_at: string
@@ -48,6 +54,7 @@ export type Database = {
           gif_enabled: boolean
           gif_folder_id: string | null
           id: string
+          last_synced_at: string | null
           location: string | null
           name: string
           print_enabled: boolean
@@ -61,6 +68,9 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          auto_downloads?: boolean
+          auto_publish?: boolean
+          auto_sync?: boolean
           category_id?: string | null
           cover_url?: string | null
           created_at?: string
@@ -71,6 +81,7 @@ export type Database = {
           gif_enabled?: boolean
           gif_folder_id?: string | null
           id?: string
+          last_synced_at?: string | null
           location?: string | null
           name: string
           print_enabled?: boolean
@@ -84,6 +95,9 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          auto_downloads?: boolean
+          auto_publish?: boolean
+          auto_sync?: boolean
           category_id?: string | null
           cover_url?: string | null
           created_at?: string
@@ -94,6 +108,7 @@ export type Database = {
           gif_enabled?: boolean
           gif_folder_id?: string | null
           id?: string
+          last_synced_at?: string | null
           location?: string | null
           name?: string
           print_enabled?: boolean
@@ -156,6 +171,35 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      media_exclusions: {
+        Row: {
+          category: string
+          created_at: string
+          drive_file_id: string
+          event_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          drive_file_id: string
+          event_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          drive_file_id?: string
+          event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_exclusions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media_items: {
         Row: {
