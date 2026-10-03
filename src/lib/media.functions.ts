@@ -21,34 +21,6 @@ function categoryOf(input: unknown): MediaCategory {
   return input as MediaCategory;
 }
 
-// Words that identify each tab's Drive sub-folder (matched anywhere in the name).
-const FOLDER_KEYWORDS: Record<MediaCategory, string[]> = {
-  gif: ["animat", "gif"],
-  digitals: ["print", "digital"],
-  singles: ["single"],
-};
-
-function normalizeName(value: string): string {
-  return value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function driveErrorMessage(e: unknown): string {
-  const code = e instanceof Error ? e.message : "";
-  if (code === "drive_error_401") {
-    return "The Google Drive connection needs to be renewed. Reconnect Google Drive, then try again.";
-  }
-  if (["drive_error_400", "drive_error_403", "drive_error_404"].includes(code)) {
-    return "Google Drive can't open that folder. Make sure the link is for a folder in the Google account connected to this site (or shared with it), then try again.";
-  }
-  return "Could not reach Google Drive. Please try again shortly.";
-}
-
-const FOLDER_COLUMN: Record<MediaCategory, string> = {
-  digitals: "digitals_folder_id",
-  gif: "gif_folder_id",
-  singles: "singles_folder_id",
-};
-
 export const adminGetEvent = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { eventId: string }) => ({ eventId: String(input.eventId) }))
@@ -91,8 +63,19 @@ export const adminGetEvent = createServerFn({ method: "GET" })
       .select("id", { count: "exact", head: true })
       .eq("source", "sample");
 
+    const { count: removedCount, error: removedError } = await (context.supabase as any)
+      .from("media_exclusions")
+      .select("event_id", { count: "exact", head: true })
+      .eq("event_id", data.eventId);
+
     const { isDriveConfigured } = await import("./gallery/drive.server");
-    return { event, stats, samplesTotal: samplesTotal ?? 0, driveConnected: isDriveConfigured() };
+    return {
+      event,
+      stats,
+      samplesTotal: samplesTotal ?? 0,
+      removedCount: removedError ? 0 : (removedCount ?? 0),
+      driveConnected: isDriveConfigured(),
+    };
   });
 
 export const adminListMedia = createServerFn({ method: "GET" })
@@ -134,128 +117,59 @@ export const syncEventMedia = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error || !event) throw new Error("Event not found");
 
-    const { isDriveConfigured, listAllDriveFiles, listDriveSubfolders, listOtherDriveFiles } =
-      await import("./gallery/drive.server");
+    const { isDriveConfigured } = await import("./gallery/drive.server");
     const driveConnected = isDriveConfigured();
     if (!driveConnected) {
       throw new Error("Google Drive isn't connected yet, so there is nothing to check.");
     }
 
-    const { data: existing } = await (context.supabase as any)
-      .from("media_items")
-      .select("category, drive_file_id")
-      .eq("event_id", data.eventId);
-    const seen = new Set(
-      (existing ?? []).map((row: any) => `${row.category}:${row.drive_file_id}`),
-    );
-
-    const inserts: Record<string, unknown>[] = [];
-    const report: string[] = [];
-    const learned: Record<string, string> = {};
-
-    const labelOf = (category: MediaCategory) =>
-      category === "gif" ? "Animated" : category === "digitals" ? "Prints" : "Single Photos";
-    const isFolderAccessError = (e: unknown) =>
-      e instanceof Error && ["drive_error_400", "drive_error_403", "drive_error_404"].includes(e.message);
-
-    const mainFolder = (event.drive_folder_id as string | null) || null;
-    let subfolderCache: { id: string; name: string }[] | null = null;
-    const findFolder = async (category: MediaCategory): Promise<string | null> => {
-      if (!mainFolder) return null;
-      if (!subfolderCache) {
-        try {
-          subfolderCache = await listDriveSubfolders(mainFolder);
-        } catch (e) {
-          throw new Error(driveErrorMessage(e));
-        }
-      }
-      const match = subfolderCache.find((folder) => {
-        const name = normalizeName(folder.name);
-        return FOLDER_KEYWORDS[category].some((word) => name.includes(word));
-      });
-      return match?.id ?? null;
-    };
-
-    let foldersFound = 0;
-
-    for (const category of CATEGORIES) {
-      const label = labelOf(category);
-      let folderId = (event[FOLDER_COLUMN[category]] as string | null) || null;
-      let files: Awaited<ReturnType<typeof listAllDriveFiles>> | null = null;
-      // The Animated tab also accepts videos (MP4, MOV…).
-      const listOptions = { includeVideos: category === "gif" };
-
-      // A saved folder link that no longer works falls back to the main folder.
-      if (folderId) {
-        try {
-          files = await listAllDriveFiles(folderId, listOptions);
-        } catch (e) {
-          if (mainFolder && isFolderAccessError(e)) folderId = null;
-          else throw new Error(driveErrorMessage(e));
-        }
-      }
-      if (!folderId) {
-        folderId = await findFolder(category);
-        if (folderId) {
-          try {
-            files = await listAllDriveFiles(folderId, listOptions);
-          } catch (e) {
-            throw new Error(driveErrorMessage(e));
-          }
-          learned[FOLDER_COLUMN[category]] = folderId;
-        }
-      }
-
-      if (!folderId || !files) {
-        report.push(`${label}: folder not found`);
-        continue;
-      }
-      foldersFound += 1;
-
-      let added = 0;
-      for (const file of files) {
-        if (seen.has(`${category}:${file.id}`)) continue;
-        added += 1;
-        inserts.push({
-          event_id: data.eventId,
-          category,
-          drive_file_id: file.id,
-          name: file.name,
-          mime_type: file.mimeType,
-          width: file.imageMediaMetadata?.width ?? file.videoMediaMetadata?.width ?? null,
-          height: file.imageMediaMetadata?.height ?? file.videoMediaMetadata?.height ?? null,
-          is_gif: file.mimeType === "image/gif",
-          source: "drive",
-        });
-      }
-
-      if (files.length === 0) {
-        const others = await listOtherDriveFiles(folderId);
-        report.push(
-          others.length > 0
-            ? `${label}: no photos or videos, but ${others.length} other file${others.length === 1 ? "" : "s"} found (for example "${others[0]!.name}"). Only images (JPG, PNG, GIF, WebP) and, in Animated, videos can be shown.`
-            : `${label}: folder found but it is empty`,
-        );
-      } else {
-        report.push(`${label}: ${files.length} file${files.length === 1 ? "" : "s"} found (${added} new)`);
-      }
-    }
-
-    if (Object.keys(learned).length > 0) {
-      await (context.supabase as any).from("events").update(learned).eq("id", data.eventId);
-    }
-
-    if (inserts.length > 0) {
-      for (let i = 0; i < inserts.length; i += 500) {
-        const { error: insertError } = await (context.supabase as any)
-          .from("media_items")
-          .insert(inserts.slice(i, i + 500));
-        if (insertError) throw new Error(insertError.message);
-      }
-    }
-
-    return { added: inserts.length, driveConnected, foldersFound, report };
+    const { syncEventFromDrive } = await import("./gallery/sync.server");
+    const result = await syncEventFromDrive(context.supabase, event, {
+      autoPublish: event.auto_publish === true,
+      autoDownloads: event.auto_downloads === true,
+    });
+    return { ...result, driveConnected };
   });
+
+/** Turns automatic Drive checking / publishing on or off for an event. */
+export const setEventLive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { eventId: string; autoSync: boolean; autoPublish: boolean; autoDownloads: boolean }) => ({
+      eventId: String(input.eventId),
+      autoSync: Boolean(input.autoSync),
+      autoPublish: Boolean(input.autoPublish),
+      autoDownloads: Boolean(input.autoDownloads),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as Ctx);
+    const { error } = await (context.supabase as any)
+      .from("events")
+      .update({
+        auto_sync: data.autoSync,
+        auto_publish: data.autoPublish,
+        auto_downloads: data.autoDownloads,
+      })
+      .eq("id", data.eventId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Lets files that were removed earlier come back the next time Drive is checked. */
+export const clearRemovedFiles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { eventId: string }) => ({ eventId: String(input.eventId) }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context as Ctx);
+    const { error } = await (context.supabase as any)
+      .from("media_exclusions")
+      .delete()
+      .eq("event_id", data.eventId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 export const setMediaFlags = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -349,6 +263,24 @@ export const setEventPublished = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Remembers removed Drive files so automatic sync doesn't re-add them. */
+async function rememberRemoved(
+  db: any,
+  rows: { event_id: string; category: string; drive_file_id: string; source?: string }[],
+) {
+  const exclusions = rows
+    .filter((row) => !row.source || row.source === "drive")
+    .map(({ event_id, category, drive_file_id }) => ({ event_id, category, drive_file_id }));
+  for (let i = 0; i < exclusions.length; i += 200) {
+    await db
+      .from("media_exclusions")
+      .upsert(exclusions.slice(i, i + 200), {
+        onConflict: "event_id,category,drive_file_id",
+        ignoreDuplicates: true,
+      });
+  }
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
@@ -368,6 +300,11 @@ export const deleteMedia = createServerFn({ method: "POST" })
 
     let removed = 0;
     for (const ids of chunk(data.ids, 100)) {
+      const { data: toRemove } = await (context.supabase as any)
+        .from("media_items")
+        .select("event_id, category, drive_file_id, source")
+        .in("id", ids);
+      await rememberRemoved(context.supabase, toRemove ?? []);
       const { data: rows, error } = await (context.supabase as any)
         .from("media_items")
         .delete()
@@ -388,6 +325,17 @@ export const deleteCategoryMedia = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     await assertAdmin(context as Ctx);
+    for (let from = 0; ; from += 1000) {
+      const { data: toRemove } = await (context.supabase as any)
+        .from("media_items")
+        .select("event_id, category, drive_file_id, source")
+        .eq("event_id", data.eventId)
+        .eq("category", data.category)
+        .range(from, from + 999);
+      if (!toRemove || toRemove.length === 0) break;
+      await rememberRemoved(context.supabase, toRemove);
+      if (toRemove.length < 1000) break;
+    }
     const { data: rows, error } = await (context.supabase as any)
       .from("media_items")
       .delete()

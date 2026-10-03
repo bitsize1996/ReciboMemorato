@@ -29,6 +29,7 @@ import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/memory-media'
 import { Route as ApiPublicSiteImageRouteImport } from './routes/api/public/site-image'
+import { Route as ApiPublicSyncDriveRouteImport } from './routes/api/public/sync-drive'
 import { Route as AuthenticatedAdminGalleryEventIdRouteImport } from './routes/_authenticated/admin.gallery.$eventId'
 import { Route as AuthenticatedAdminSalesIndexRouteImport } from './routes/_authenticated/admin.sales.index'
 import { Route as AuthenticatedAdminSalesSaleIdRouteImport } from './routes/_authenticated/admin.sales.$saleId'
@@ -142,6 +143,11 @@ const ApiPublicSiteImageRoute = ApiPublicSiteImageRouteImport.update({
   path: '/api/public/site-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSyncDriveRoute = ApiPublicSyncDriveRouteImport.update({
+  id: '/api/public/sync-drive',
+  path: '/api/public/sync-drive',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminGalleryEventIdRoute =
   AuthenticatedAdminGalleryEventIdRouteImport.update({
     id: '/gallery/$eventId',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
+  '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
   '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
+  '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
   '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
@@ -237,6 +245,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
+  '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
   '/_authenticated/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/api/public/memory-media'
     | '/api/public/site-image'
+    | '/api/public/sync-drive'
     | '/admin/'
     | '/admin/gallery/$eventId'
     | '/admin/sales/$saleId'
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/api/public/memory-media'
     | '/api/public/site-image'
+    | '/api/public/sync-drive'
     | '/admin'
     | '/admin/gallery/$eventId'
     | '/admin/sales/$saleId'
@@ -314,6 +325,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings'
     | '/api/public/memory-media'
     | '/api/public/site-image'
+    | '/api/public/sync-drive'
     | '/_authenticated/admin/'
     | '/_authenticated/admin/gallery/$eventId'
     | '/_authenticated/admin/sales/$saleId'
@@ -332,6 +344,7 @@ export interface RootRouteChildren {
   MemoriesIndexRoute: typeof MemoriesIndexRoute
   ApiPublicMemoryMediaRoute: typeof ApiPublicMemoryMediaRoute
   ApiPublicSiteImageRoute: typeof ApiPublicSiteImageRoute
+  ApiPublicSyncDriveRoute: typeof ApiPublicSyncDriveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -476,6 +489,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSiteImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/sync-drive': {
+      id: '/api/public/sync-drive'
+      path: '/api/public/sync-drive'
+      fullPath: '/api/public/sync-drive'
+      preLoaderRoute: typeof ApiPublicSyncDriveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin/gallery/$eventId': {
       id: '/_authenticated/admin/gallery/$eventId'
       path: '/gallery/$eventId'
@@ -579,6 +599,7 @@ const rootRouteChildren: RootRouteChildren = {
   MemoriesIndexRoute: MemoriesIndexRoute,
   ApiPublicMemoryMediaRoute: ApiPublicMemoryMediaRoute,
   ApiPublicSiteImageRoute: ApiPublicSiteImageRoute,
+  ApiPublicSyncDriveRoute: ApiPublicSyncDriveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

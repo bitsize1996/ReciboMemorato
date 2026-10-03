@@ -180,3 +180,57 @@ export const listEventMedia = createServerFn({ method: "GET" })
       source: "drive",
     };
   });
+
+export const refreshEventGallery = createServerFn({ method: "POST" })
+  .inputValidator((input: { slug: string }) => ({ slug: String(input.slug) }))
+  .handler(async ({ data }): Promise<{ added: number; publishedCount: number }> => {
+    const empty = { added: 0, publishedCount: 0 };
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const db = supabaseAdmin as any;
+      const { data: event, error } = await db
+        .from("events")
+        .select("*")
+        .eq("slug", data.slug)
+        .eq("published", true)
+        .maybeSingle();
+      if (error || !event) return empty;
+
+      let added = 0;
+      if (event.auto_sync === true) {
+        const { isDriveConfigured } = await import("./gallery/drive.server");
+        if (isDriveConfigured()) {
+          const cutoff = new Date(Date.now() - 25_000).toISOString();
+          const { data: claimed } = await db
+            .from("events")
+            .update({ last_synced_at: new Date().toISOString() })
+            .eq("id", event.id)
+            .or(`last_synced_at.is.null,last_synced_at.lt.${cutoff}`)
+            .select("id");
+          if (claimed && claimed.length > 0) {
+            try {
+              const { syncEventFromDrive } = await import("./gallery/sync.server");
+              const result = await syncEventFromDrive(db, event, {
+                autoPublish: event.auto_publish === true,
+                autoDownloads: event.auto_downloads === true,
+              });
+              added = result.added;
+            } catch (err) {
+              console.error("Automatic Drive sync failed", err);
+            }
+          }
+        }
+      }
+
+      const { count } = await db
+        .from("media_items")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", event.id)
+        .eq("published", true)
+        .neq("source", "sample");
+      return { added, publishedCount: count ?? 0 };
+    } catch (err) {
+      console.error("Failed to refresh gallery", err);
+      return empty;
+    }
+  });

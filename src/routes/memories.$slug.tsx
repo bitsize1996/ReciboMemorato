@@ -1,10 +1,10 @@
-import { queryOptions, useInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useInfiniteQuery, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { GalleryEmpty, GalleryError, GalleryLoading, MediaGrid } from "@/components/gallery/MediaGrid";
-import { getPublishedEvent, listEventMedia } from "@/lib/gallery.functions";
+import { getPublishedEvent, listEventMedia, refreshEventGallery } from "@/lib/gallery.functions";
 import {
   MEDIA_CATEGORIES,
   formatEventDate,
@@ -80,6 +80,25 @@ function CategoryPanel({ slug, category }: { slug: string; category: MediaCatego
 function EventGalleryPage() {
   const { slug } = Route.useParams();
   const { data: event } = useSuspenseQuery(eventQuery(slug));
+  const queryClient = useQueryClient();
+  const lastCount = useRef<number | null>(null);
+
+  useQuery({
+    queryKey: ["event-live", slug],
+    queryFn: async () => {
+      const result = await refreshEventGallery({ data: { slug } });
+      const changed = lastCount.current !== null && lastCount.current !== result.publishedCount;
+      if (result.added > 0 || changed) {
+        queryClient.invalidateQueries({ queryKey: ["media", slug] });
+      }
+      lastCount.current = result.publishedCount;
+      return result;
+    },
+    refetchInterval: 30_000,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
   const tabs = MEDIA_CATEGORIES.filter((tab) => event?.categories.includes(tab.key));
   const [category, setCategory] = useState<MediaCategory | null>(null);
   const active = category && tabs.some((tab) => tab.key === category) ? category : tabs[0]?.key;
