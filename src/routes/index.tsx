@@ -120,12 +120,15 @@ const NAV_CSS = `
 .nav-shell .site-header nav a { padding: 8px 0; }
 .nav-shell .site-header nav a.is-active { border-color: var(--primary); color: var(--primary); }
 .nav-shell .site-header nav a.nav-admin { padding: 8px 14px; border: 1px solid var(--foreground); border-radius: 999px; }
+.nav-shell .site-header nav a.nav-book { padding: 8px 14px; border: 1px solid var(--primary); border-radius: 999px; background: var(--primary); color: var(--primary-foreground); }
+.nav-shell .site-header nav a.nav-book:hover { opacity: .88; }
 .nav-shell .site-header nav a.nav-admin:hover { background: var(--foreground); color: var(--background); }
 .nav-actions { display: flex; align-items: center; gap: 10px; }
 .nav-toggle { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--foreground); border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
 .nav-panel { display: grid; max-height: calc(100svh - 76px); overflow-y: auto; padding: 4px clamp(20px, 5vw, 76px) 22px; border-top: 1px solid var(--border); background: var(--background); font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; }
 .nav-panel a { padding: 17px 4px; border-bottom: 1px dashed var(--border); }
 .nav-panel a.is-active { color: var(--primary); }
+.nav-panel a.nav-book { margin-top: 14px; border: 1px solid var(--primary); border-radius: 999px; background: var(--primary); color: var(--primary-foreground); text-align: center; }
 .nav-panel a.nav-admin { margin-top: 14px; border: 1px solid var(--foreground); border-radius: 999px; text-align: center; }
 .to-top { position: fixed; z-index: 40; right: 16px; bottom: 16px; display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid var(--foreground); border-radius: 50%; background: var(--background); color: var(--foreground); box-shadow: 0 8px 24px color-mix(in oklab, var(--foreground) 20%, transparent); opacity: 0; transform: translateY(10px); pointer-events: none; cursor: pointer; transition: opacity .2s, transform .2s; }
 .to-top.is-visible { opacity: 1; transform: none; pointer-events: auto; }
@@ -197,6 +200,7 @@ function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: st
             {shown("story") ? <a href="#story" className={cls("story")}>Our story</a> : null}
             {shown("faqs") ? <a href="#faqs" className={cls("faqs")}>FAQs</a> : null}
             <a href="#contact" className={cls("contact")}>Contact</a>
+            <Link to="/book" className="nav-book">Book now</Link>
             <Link to="/auth" className="nav-admin">Admin login</Link>
           </nav>
           <div className="nav-actions">
@@ -229,6 +233,7 @@ function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: st
             {shown("faqs") ? <a href="#faqs" onClick={close} className={cls("faqs")}>FAQs</a> : null}
             <a href="#contact" onClick={close} className={cls("contact")}>Contact</a>
             <a href={s.messengerUrl} target="_blank" rel="noreferrer" onClick={close}>Message us on Messenger</a>
+            <Link to="/book" onClick={close} className="nav-book">Book now</Link>
             <Link to="/auth" onClick={close} className="nav-admin">Admin login</Link>
           </nav>
         ) : null}
@@ -463,7 +468,7 @@ function Index() {
       <footer className="site-footer" id="contact">
         <BrandMark s={s} />
         <p>{h.footerDescription}</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/memories">Memory archive</Link><a href="#faqs">FAQs</a><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/memories">Memory archive</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
         <div className="flex items-center gap-4">
           {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
             <a key={href} href={href} className="footer-social" target="_blank" rel="noreferrer" aria-label={label}>

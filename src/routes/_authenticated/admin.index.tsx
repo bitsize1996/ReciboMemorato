@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { Stat, useRange } from "@/components/admin/RangeFilter";
 import { useExpenses, useSales } from "@/lib/admin-data";
+import { useInquiries } from "@/lib/inquiries";
 import {
   businessExpenseTotals,
   inRange,
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 function Overview() {
   const sales = useSales();
   const expenses = useExpenses();
+  const inquiries = useInquiries();
   const { range, ui } = useRange("all");
   const all = (sales.data ?? []).filter((s) => s.payment_status !== "cancelled");
   const rows = all.filter((s) => !range.from && !range.to ? true : inRange(s.booking_date, range));
@@ -53,6 +55,17 @@ function Overview() {
             <Stat label="This month's sales" value={peso(m.revenue)} />
             <Stat label="This month's net profit" value={peso(netProfitMonth)} sub={`after ${peso(businessMonth.total)} business expenses`} />
           </div>
+          {inquiries.data ? (
+            <section className="adm-card">
+              <h2>Inquiries</h2>
+              <div className="adm-stats">
+                <Stat label="New" value={String(inquiries.data.filter((i) => i.status === "new").length)} sub="waiting for a reply" />
+                <Stat label="Quoted" value={String(inquiries.data.filter((i) => i.status === "quoted").length)} sub="waiting for an answer" />
+                <Stat label="Booked" value={String(inquiries.data.filter((i) => i.status === "booked").length)} />
+              </div>
+              <p><Link to="/admin/inquiries">Open inquiries →</Link></p>
+            </section>
+          ) : null}
           <section className="adm-card">
             <h2>Recent sales</h2>
             {rows.length === 0 ? <p className="adm-empty">No sales recorded yet.</p> : (

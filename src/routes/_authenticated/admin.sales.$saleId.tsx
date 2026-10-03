@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useMaterials } from "@/lib/admin-data";
+import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
+import { siteSettingsQuery } from "@/lib/site.functions";
 import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel } from "@/lib/finance";
 import { useServerFn } from "@tanstack/react-start";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
@@ -29,6 +31,8 @@ function SaleDetail() {
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
   const materials = useMaterials();
+  const biz = useBusinessInfo();
+  const site = useQuery(siteSettingsQuery);
   const [mat, setMat] = useState<null | { material_id: string; quantity: string }>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -39,6 +43,10 @@ function SaleDetail() {
   if (!sale.data) return <div className="adm-page"><p>Sale not found.</p><Link to="/admin/sales">Back to sales</Link></div>;
   const s = sale.data;
   const t = saleTotals(s);
+  const invoiceMsg = invoiceMessage(s as never, brandName(site.data), biz.data?.paymentInstructions ?? "");
+  const mailUrl = gmailComposeUrl({
+    from: biz.data?.email, to: s.customer_email ?? "", subject: invoiceMsg.subject, body: invoiceMsg.body,
+  });
   const share = (amount: number) => (t.netRevenue > 0 ? (amount / t.netRevenue) * 100 : 0);
   const expenseByCategory = s.sale_expenses.reduce<Record<string, number>>(
     (a, x) => ({ ...a, [x.category]: (a[x.category] ?? 0) + n(x.amount) }), {});
@@ -102,12 +110,17 @@ function SaleDetail() {
         <div><Link to="/admin/sales">← Sales</Link><h1>Sale {saleCode(s.sale_number)}</h1></div>
         <div className="adm-row">
           <Link to="/admin/sales/$saleId/invoice" params={{ saleId: s.id }}><Button variant="outline">Invoice</Button></Link>
+          <Button asChild variant="outline"><a href={mailUrl} target="_blank" rel="noreferrer">Email invoice</a></Button>
+          <Button variant="outline" onClick={async () => setMsg((await copyText(invoiceMsg.body)) ? "Invoice text copied. Paste it into Messenger or any chat." : "Could not copy automatically.")}>Copy invoice text</Button>
           <Button variant="outline" onClick={syncCal}>{s.gcal_event_id ? "Update Google Calendar" : "Add to Google Calendar"}</Button>
           <Button variant="outline" onClick={deleteSale}>Delete sale</Button>
         </div>
       </header>
       {err && <p className="adm-error">{err}</p>}
       {msg && <p className="adm-hint">{msg}</p>}
+      {biz.data?.ready && !biz.data.email ? (
+        <p className="adm-hint">Tip: add your Recibo Memorato Gmail in <Link to="/admin/settings">Settings</Link> so "Email invoice" opens from the right account.</p>
+      ) : null}
       <div className="adm-grid">
         <section className="adm-card">
           <h2>Details</h2>

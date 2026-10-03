@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { resetMyPassword } from "@/lib/auth.functions";
+import { useBusinessInfo } from "@/lib/messages";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   head: () => ({ meta: [{ title: "Settings | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -15,6 +16,29 @@ function SettingsPage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const navigate = useNavigate();
+
+  const biz = useBusinessInfo();
+  const [infoDraft, setInfoDraft] = useState<{ email: string; pay: string } | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [infoBusy, setInfoBusy] = useState(false);
+  const info = infoDraft ?? { email: biz.data?.email ?? "", pay: biz.data?.paymentInstructions ?? "" };
+
+  async function saveInfo(event: React.FormEvent) {
+    event.preventDefault();
+    setInfoBusy(true);
+    setInfoMessage(null);
+    const { error } = await (supabase as any).from("business_info").upsert({
+      id: 1,
+      contact_email: info.email.trim() || null,
+      payment_instructions: info.pay.trim() || null,
+      updated_at: new Date().toISOString(),
+    });
+    setInfoBusy(false);
+    if (error) return setInfoMessage("Could not save. The one-time setup for business details may not have been run yet.");
+    setInfoDraft(null);
+    setInfoMessage("Saved.");
+    qc.invalidateQueries({ queryKey: ["biz", "business-info"] });
+  }
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -58,6 +82,34 @@ function SettingsPage() {
         <p>Signed in as <strong>{user.email}</strong> (owner).</p>
         <p className="adm-hint">Currency: Philippine Peso (₱).</p>
         <Button variant="outline" onClick={signOut}>Sign out</Button>
+      </section>
+      <section className="adm-card">
+        <h2>Business details</h2>
+        <p className="adm-hint">Used when you email or copy an invoice or an inquiry reply. Only you can see this page.</p>
+        <form className="adm-form" onSubmit={saveInfo}>
+          <label className="adm-wide">
+            Your Recibo Memorato Gmail address
+            <input
+              type="email"
+              placeholder="yourname@gmail.com"
+              value={info.email}
+              onChange={(e) => setInfoDraft({ ...info, email: e.target.value })}
+            />
+          </label>
+          <label className="adm-wide">
+            How customers pay (GCash number, bank details…)
+            <textarea
+              rows={4}
+              placeholder={"GCash: 0917 000 0000 (Name)\nBDO: 0000 0000 00"}
+              value={info.pay}
+              onChange={(e) => setInfoDraft({ ...info, pay: e.target.value })}
+            />
+          </label>
+          {infoMessage ? <p className="adm-hint adm-wide">{infoMessage}</p> : null}
+          <div className="adm-row">
+            <Button type="submit" disabled={infoBusy}>{infoBusy ? "Saving…" : "Save details"}</Button>
+          </div>
+        </form>
       </section>
       <section className="adm-card">
         <h2>Change password</h2>

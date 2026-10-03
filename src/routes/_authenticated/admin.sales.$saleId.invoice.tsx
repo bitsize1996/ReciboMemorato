@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { n, peso, saleCode, statusLabel } from "@/lib/finance";
+import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
+import { siteSettingsQuery } from "@/lib/site.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/sales/$saleId/invoice")({
   head: () => ({ meta: [{ title: "Invoice | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -12,6 +15,9 @@ export const Route = createFileRoute("/_authenticated/admin/sales/$saleId/invoic
 
 function Invoice() {
   const { saleId } = Route.useParams();
+  const biz = useBusinessInfo();
+  const site = useQuery(siteSettingsQuery);
+  const [note, setNote] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ["biz", "sale", saleId, "invoice"],
     queryFn: async () => {
@@ -26,13 +32,28 @@ function Invoice() {
   const net = n(s.selling_price) - n(s.discount);
   const balance = net - n(s.amount_paid);
   const unit = s.quantity ? n(s.selling_price) / s.quantity : n(s.selling_price);
+  const payment = biz.data?.paymentInstructions ?? "";
+  const message = invoiceMessage(s as never, brandName(site.data), payment);
+  const mailUrl = gmailComposeUrl({
+    from: biz.data?.email, to: s.customer_email ?? "", subject: message.subject, body: message.body,
+  });
 
   return (
     <div className="adm-page">
       <div className="adm-head inv-noprint">
         <Link to="/admin/sales/$saleId" params={{ saleId }}>← Back to sale</Link>
-        <Button onClick={() => window.print()}>Print / Save as PDF</Button>
+        <div className="adm-row">
+          <Button asChild variant="outline"><a href={mailUrl} target="_blank" rel="noreferrer">Email invoice</a></Button>
+          <Button
+            variant="outline"
+            onClick={async () => setNote((await copyText(message.body)) ? "Invoice text copied. Paste it into Messenger or any chat." : "Could not copy automatically.")}
+          >
+            Copy invoice text
+          </Button>
+          <Button onClick={() => window.print()}>Print / Save as PDF</Button>
+        </div>
       </div>
+      {note ? <p className="adm-hint inv-noprint">{note}</p> : null}
       <article className="inv-sheet">
         <header className="inv-top">
           <div><strong className="inv-brand">RECIBO MEMORATO</strong><div className="inv-muted">by the bitsize sibs</div></div>
@@ -56,6 +77,12 @@ function Invoice() {
           <dt><strong>Balance due</strong></dt><dd><strong>{peso(balance)}</strong></dd>
         </dl>
         <p className="inv-muted">Status: {statusLabel(s.payment_status)}</p>
+        {payment ? (
+          <div>
+            <div className="inv-muted">How to pay</div>
+            <p style={{ whiteSpace: "pre-line", margin: "4px 0 0" }}>{payment}</p>
+          </div>
+        ) : null}
         <p className="inv-foot">Thank you! Because memories need proofs.</p>
       </article>
     </div>
