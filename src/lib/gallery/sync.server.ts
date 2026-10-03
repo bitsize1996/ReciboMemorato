@@ -1,0 +1,195 @@
+import {
+  listAllDriveFiles,
+  listDriveSubfolders,
+  listOtherDriveFiles,
+} from "./drive.server";
+import type { MediaCategory } from "./types";
+
+const CATEGORIES: MediaCategory[] = ["gif", "digitals", "singles"];
+
+const FOLDER_COLUMN: Record<MediaCategory, string> = {
+  digitals: "digitals_folder_id",
+  singles: "singles_folder_id",
+  gif: "gif_folder_id",
+};
+
+// Words that identify each tab's Drive sub-folder (matched anywhere in the name).
+const FOLDER_KEYWORDS: Record<MediaCategory, string[]> = {
+  gif: ["animat", "gif"],
+  digitals: ["print", "digital"],
+  singles: ["single"],
+};
+
+const LABEL: Record<MediaCategory, string> = {
+  gif: "Animated",
+  digitals: "Prints",
+  singles: "Single Photos",
+};
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function driveErrorMessage(e: unknown): string {
+  const code = e instanceof Error ? e.message : "";
+  if (code === "drive_error_401") {
+    return "The Google Drive connection needs to be renewed. Reconnect Google Drive, then try again.";
+  }
+  if (["drive_error_400", "drive_error_403", "drive_error_404"].includes(code)) {
+    return "Google Drive can't open that folder. Make sure the link is for a folder in the Google account connected to this site (or shared with it), then try again.";
+  }
+  return "Could not reach Google Drive. Please try again shortly.";
+}
+
+const isFolderAccessError = (e: unknown) =>
+  e instanceof Error && ["drive_error_400", "drive_error_403", "drive_error_404"].includes(e.message);
+
+/** Reads every row of a small table for one event (the API returns 1000 rows at a time). */
+async function fetchAllForEvent(db: any, table: string, eventId: string) {
+  const rows: { category: string; drive_file_id: string }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db
+      .from(table)
+      .select("category, drive_file_id")
+      .eq("event_id", eventId)
+      .range(from, from + 999);
+    if (error || !data) break;
+    rows.push(...data);
+    if (data.length < 1000) break;
+  }
+  return rows;
+}
+
+export interface SyncOptions {
+  autoPublish?: boolean;
+  autoDownloads?: boolean;
+}
+
+export interface SyncResult {
+  added: number;
+  foldersFound: number;
+  report: string[];
+}
+
+export async function syncEventFromDrive(
+  db: any,
+  event: Record<string, any>,
+  options: SyncOptions = {},
+): Promise<SyncResult> {
+  const eventId = event.id as string;
+
+  const seen = new Set<string>();
+  for (const row of await fetchAllForEvent(db, "media_items", eventId)) {
+    seen.add(`${row.category}:${row.drive_file_id}`);
+  }
+  // Files the owner removed from the gallery must not come back.
+  for (const row of await fetchAllForEvent(db, "media_exclusions", eventId)) {
+    seen.add(`${row.category}:${row.drive_file_id}`);
+  }
+
+  const inserts: Record<string, unknown>[] = [];
+  const report: string[] = [];
+  const learned: Record<string, string> = {};
+
+  const mainFolder = (event.drive_folder_id as string | null) || null;
+  let subfolderCache: { id: string; name: string }[] | null = null;
+  const findFolder = async (category: MediaCategory): Promise<string | null> => {
+    if (!mainFolder) return null;
+    if (!subfolderCache) {
+      try {
+        subfolderCache = await listDriveSubfolders(mainFolder);
+      } catch (e) {
+        throw new Error(driveErrorMessage(e));
+      }
+    }
+    const match = subfolderCache.find((folder) => {
+      const name = normalizeName(folder.name);
+      return FOLDER_KEYWORDS[category].some((word) => name.includes(word));
+    });
+    return match?.id ?? null;
+  };
+
+  let foldersFound = 0;
+
+  for (const category of CATEGORIES) {
+    const label = LABEL[category];
+    let folderId = (event[FOLDER_COLUMN[category]] as string | null) || null;
+    let files: Awaited<ReturnType<typeof listAllDriveFiles>> | null = null;
+    // The Animated tab also accepts videos (MP4, MOV...).
+    const listOptions = { includeVideos: category === "gif" };
+
+    // A saved folder link that no longer works falls back to the main folder.
+    if (folderId) {
+      try {
+        files = await listAllDriveFiles(folderId, listOptions);
+      } catch (e) {
+        if (mainFolder && isFolderAccessError(e)) folderId = null;
+        else throw new Error(driveErrorMessage(e));
+      }
+    }
+    if (!folderId) {
+      folderId = await findFolder(category);
+      if (folderId) {
+        try {
+          files = await listAllDriveFiles(folderId, listOptions);
+        } catch (e) {
+          throw new Error(driveErrorMessage(e));
+        }
+        learned[FOLDER_COLUMN[category]] = folderId;
+      }
+    }
+
+    if (!folderId || !files) {
+      report.push(`${label}: folder not found`);
+      continue;
+    }
+    foldersFound += 1;
+
+    let added = 0;
+    for (const file of files) {
+      if (seen.has(`${category}:${file.id}`)) continue;
+      seen.add(`${category}:${file.id}`);
+      added += 1;
+      inserts.push({
+        event_id: eventId,
+        category,
+        drive_file_id: file.id,
+        name: file.name,
+        mime_type: file.mimeType,
+        width: file.imageMediaMetadata?.width ?? file.videoMediaMetadata?.width ?? null,
+        height: file.imageMediaMetadata?.height ?? file.videoMediaMetadata?.height ?? null,
+        is_gif: file.mimeType === "image/gif",
+        source: "drive",
+        published: options.autoPublish === true,
+        download_enabled: options.autoPublish === true && options.autoDownloads === true,
+      });
+    }
+
+    if (files.length === 0) {
+      const others = await listOtherDriveFiles(folderId);
+      report.push(
+        others.length > 0
+          ? `${label}: no photos or videos, but ${others.length} other file${others.length === 1 ? "" : "s"} found (for example "${others[0]!.name}"). Only images (JPG, PNG, GIF, WebP) and, in Animated, videos can be shown.`
+          : `${label}: folder found but it is empty`,
+      );
+    } else {
+      report.push(`${label}: ${files.length} file${files.length === 1 ? "" : "s"} found (${added} new)`);
+    }
+  }
+
+  if (Object.keys(learned).length > 0) {
+    await db.from("events").update(learned).eq("id", eventId);
+  }
+
+  for (let i = 0; i < inserts.length; i += 500) {
+    const { error } = await db
+      .from("media_items")
+      .upsert(inserts.slice(i, i + 500), {
+        onConflict: "event_id,category,drive_file_id",
+        ignoreDuplicates: true,
+      });
+    if (error) throw new Error(error.message);
+  }
+
+  return { added: inserts.length, foldersFound, report };
+}
