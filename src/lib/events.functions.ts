@@ -33,6 +33,7 @@ export interface EventInput {
   location: string | null;
   cover_url: string | null;
   category_id?: string | null;
+  cover_position?: string | null;
   drive_folder_id: string | null;
   digitals_folder_id: string | null;
   gif_folder_id: string | null;
@@ -116,16 +117,26 @@ export const saveEvent = createServerFn({ method: "POST" })
       sort_order: Number(data.sort_order) || 0,
     };
 
+    const db = context.supabase as any;
     const run = (body: Record<string, unknown>) =>
-      data.id
-        ? context.supabase.from("events").update(body).eq("id", data.id)
-        : context.supabase.from("events").insert(body);
+      data.id ? db.from("events").update(body).eq("id", data.id) : db.from("events").insert(body);
 
-    // category_id only exists once the categories setup has been run.
-    let { error } = await run(
-      data.category_id === undefined ? payload : { ...payload, category_id: data.category_id || null },
-    );
-    if (error && /category_id/i.test(error.message)) ({ error } = await run(payload));
+    // These columns only exist once their database setup has been run.
+    const extras: Record<string, unknown> = {};
+    if (data.category_id !== undefined) extras["category_id"] = data.category_id || null;
+    if (data.cover_position !== undefined) {
+      extras["cover_position"] = /^\d{1,3}(\.\d+)?% \d{1,3}(\.\d+)?%$/.test(data.cover_position ?? "")
+        ? data.cover_position
+        : null;
+    }
+    let { error } = await run({ ...payload, ...extras });
+    if (error) {
+      const message = error.message;
+      const kept = Object.fromEntries(Object.entries(extras).filter(([key]) => !message.includes(key)));
+      if (Object.keys(kept).length < Object.keys(extras).length) {
+        ({ error } = await run({ ...payload, ...kept }));
+      }
+    }
     if (error) throw new Error(error.message);
     return { ok: true };
   });

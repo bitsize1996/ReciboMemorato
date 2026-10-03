@@ -5,6 +5,10 @@ import {
 } from "./drive.server";
 import type { MediaCategory } from "./types";
 
+// Reads an event's Google Drive folders and records files we haven't seen.
+// Used by the admin "Check for new files" button, by the automatic refresh
+// that runs while people view a gallery, and by the optional scheduled job.
+
 const CATEGORIES: MediaCategory[] = ["gif", "digitals", "singles"];
 
 const FOLDER_COLUMN: Record<MediaCategory, string> = {
@@ -53,7 +57,7 @@ async function fetchAllForEvent(db: any, table: string, eventId: string) {
       .select("category, drive_file_id")
       .eq("event_id", eventId)
       .range(from, from + 999);
-    if (error || !data) break;
+    if (error || !data) break; // e.g. the table doesn't exist yet
     rows.push(...data);
     if (data.length < 1000) break;
   }
@@ -61,7 +65,9 @@ async function fetchAllForEvent(db: any, table: string, eventId: string) {
 }
 
 export interface SyncOptions {
+  /** Publish new files immediately instead of leaving them hidden. */
   autoPublish?: boolean;
+  /** When publishing automatically, also allow downloads. */
   autoDownloads?: boolean;
 }
 
@@ -73,7 +79,7 @@ export interface SyncResult {
 
 export async function syncEventFromDrive(
   db: any,
-  event: Record<string, any>,
+  event: any,
   options: SyncOptions = {},
 ): Promise<SyncResult> {
   const eventId = event.id as string;
@@ -115,7 +121,7 @@ export async function syncEventFromDrive(
     const label = LABEL[category];
     let folderId = (event[FOLDER_COLUMN[category]] as string | null) || null;
     let files: Awaited<ReturnType<typeof listAllDriveFiles>> | null = null;
-    // The Animated tab also accepts videos (MP4, MOV...).
+    // The Animated tab also accepts videos (MP4, MOV…).
     const listOptions = { includeVideos: category === "gif" };
 
     // A saved folder link that no longer works falls back to the main folder.
