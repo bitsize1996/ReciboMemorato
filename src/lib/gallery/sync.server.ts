@@ -50,7 +50,12 @@ const isFolderAccessError = (e: unknown) =>
 
 /** Reads every row of a small table for one event (the API returns 1000 rows at a time). */
 async function fetchAllForEvent(db: any, table: string, eventId: string, extra = "") {
-  const rows: { category: string; drive_file_id: string; drive_created_at?: string | null }[] = [];
+  const rows: {
+    category: string;
+    drive_file_id: string;
+    drive_created_at?: string | null;
+    source?: string | null;
+  }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db
       .from(table)
@@ -73,6 +78,7 @@ export interface SyncOptions {
 
 export interface SyncResult {
   added: number;
+  removed: number;
   foldersFound: number;
   report: string[];
 }
@@ -87,10 +93,16 @@ export async function syncEventFromDrive(
   const seen = new Set<string>();
   // Files already in the gallery that don't yet know when they were added to Drive.
   const undated = new Set<string>();
-  for (const row of await fetchAllForEvent(db, "media_items", eventId, ", drive_created_at")) {
+  // Drive-sourced files currently in the gallery, per category (to spot ones deleted from Drive).
+  const inGallery = new Map<string, Set<string>>();
+  for (const row of await fetchAllForEvent(db, "media_items", eventId, ", drive_created_at, source")) {
     const key = `${row.category}:${row.drive_file_id}`;
     seen.add(key);
     if (!row.drive_created_at) undated.add(key);
+    if ((row.source ?? "drive") === "drive") {
+      if (!inGallery.has(row.category)) inGallery.set(row.category, new Set());
+      inGallery.get(row.category)!.add(row.drive_file_id);
+    }
   }
   // Files the owner removed from the gallery must not come back.
   for (const row of await fetchAllForEvent(db, "media_exclusions", eventId)) {
@@ -99,6 +111,8 @@ export async function syncEventFromDrive(
 
   const inserts: Record<string, unknown>[] = [];
   const backfill: Record<string, unknown>[] = [];
+  const toRemove: { category: string; ids: string[] }[] = [];
+  let removed = 0;
   const report: string[] = [];
   const learned: Record<string, string> = {};
 
@@ -156,6 +170,18 @@ export async function syncEventFromDrive(
     }
     foldersFound += 1;
 
+    // Files that were deleted (or moved out) in Drive no longer belong in the gallery.
+    // An empty listing is never trusted for this, so a Drive hiccup can't wipe a gallery.
+    let gone: string[] = [];
+    if (files.length > 0) {
+      const listed = new Set(files.map((file) => file.id));
+      gone = [...(inGallery.get(category) ?? [])].filter((id) => !listed.has(id));
+      if (gone.length > 0) {
+        toRemove.push({ category, ids: gone });
+        removed += gone.length;
+      }
+    }
+
     let added = 0;
     for (const file of files) {
       const key = `${category}:${file.id}`;
@@ -198,12 +224,26 @@ export async function syncEventFromDrive(
           : `${label}: folder found but it is empty`,
       );
     } else {
-      report.push(`${label}: ${files.length} file${files.length === 1 ? "" : "s"} found (${added} new)`);
+      report.push(
+        `${label}: ${files.length} file${files.length === 1 ? "" : "s"} found (${added} new${gone.length > 0 ? `, ${gone.length} removed` : ""})`,
+      );
     }
   }
 
   if (Object.keys(learned).length > 0) {
     await db.from("events").update(learned).eq("id", eventId);
+  }
+
+  for (const { category, ids } of toRemove) {
+    for (let i = 0; i < ids.length; i += 100) {
+      await db
+        .from("media_items")
+        .delete()
+        .eq("event_id", eventId)
+        .eq("category", category)
+        .eq("source", "drive")
+        .in("drive_file_id", ids.slice(i, i + 100));
+    }
   }
 
   for (let i = 0; i < inserts.length; i += 500) {
@@ -223,5 +263,5 @@ export async function syncEventFromDrive(
       .upsert(backfill.slice(i, i + 500), { onConflict: "event_id,category,drive_file_id" });
   }
 
-  return { added: inserts.length, foldersFound, report };
+  return { added: inserts.length, removed, foldersFound, report };
 }
