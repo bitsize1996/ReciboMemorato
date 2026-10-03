@@ -151,3 +151,18 @@ export const MOVEMENT_LABELS: Record<string, string> = {
 
 /** Value of the stock on hand at today's cost per unit. */
 export const stockValue = (stock: unknown, unitCost: unknown) => Math.max(n(stock), 0) * n(unitCost);
+
+type BusinessExpenseLike = ExpenseLike & { sale_id?: string | null; amount: unknown };
+
+/** Business expenses (not tied to one booking) inside a date range; recurring ones repeat. */
+export function businessExpenseTotals(expenses: BusinessExpenseLike[], range: { from: string; to: string }) {
+  let oneTime = 0;
+  let recurring = 0;
+  for (const e of expenses) {
+    if (e.sale_id) continue;
+    const amount = n(e.amount) * expenseOccurrences(e, range);
+    if (e.kind === "recurring") recurring += amount;
+    else oneTime += amount;
+  }
+  return { oneTime, recurring, total: oneTime + recurring };
+}

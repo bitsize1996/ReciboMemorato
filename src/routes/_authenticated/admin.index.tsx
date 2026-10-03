@@ -1,8 +1,18 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { Stat, useRange } from "@/components/admin/RangeFilter";
-import { useSales } from "@/lib/admin-data";
-import { sumSales, inRange, margin, pct, peso, saleCode, statusLabel, thisMonth } from "@/lib/finance";
+import { useExpenses, useSales } from "@/lib/admin-data";
+import {
+  businessExpenseTotals,
+  inRange,
+  margin,
+  pct,
+  peso,
+  saleCode,
+  statusLabel,
+  sumSales,
+  thisMonth,
+} from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({ meta: [{ title: "Overview | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -11,11 +21,19 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 
 function Overview() {
   const sales = useSales();
+  const expenses = useExpenses();
   const { range, ui } = useRange("all");
   const all = (sales.data ?? []).filter((s) => s.payment_status !== "cancelled");
   const rows = all.filter((s) => !range.from && !range.to ? true : inRange(s.booking_date, range));
   const t = sumSales(rows);
-  const m = sumSales(all.filter((s) => inRange(s.booking_date, thisMonth())));
+  const month = thisMonth();
+  const m = sumSales(all.filter((s) => inRange(s.booking_date, month)));
+
+  // Rent, subscriptions and other business expenses that aren't tied to one booking.
+  const business = businessExpenseTotals(expenses.data ?? [], range);
+  const businessMonth = businessExpenseTotals(expenses.data ?? [], month);
+  const netProfit = t.profit - business.total;
+  const netProfitMonth = m.profit - businessMonth.total;
 
   return (
     <div className="adm-page">
@@ -27,11 +45,13 @@ function Overview() {
         <>
           <div className="adm-stats">
             <Stat label="Total sales" value={peso(t.revenue)} />
-            <Stat label="Total costs" value={peso(t.cost)} />
-            <Stat label="Total profit" value={peso(t.profit)} sub={`Margin ${pct(margin(t.profit, t.revenue))}`} />
+            <Stat label="Costs of sales" value={peso(t.cost)} sub="materials + booking expenses" />
+            <Stat label="Profit from sales" value={peso(t.profit)} sub={`Margin ${pct(margin(t.profit, t.revenue))}`} />
+            <Stat label="Business expenses" value={peso(business.total)} sub="rent, subscriptions, equipment…" />
+            <Stat label="Net profit" value={peso(netProfit)} sub={`Margin ${pct(margin(netProfit, t.revenue))} · after business expenses`} />
             <Stat label="Number of sales" value={String(rows.length)} />
             <Stat label="This month's sales" value={peso(m.revenue)} />
-            <Stat label="This month's profit" value={peso(m.profit)} />
+            <Stat label="This month's net profit" value={peso(netProfitMonth)} sub={`after ${peso(businessMonth.total)} business expenses`} />
           </div>
           <section className="adm-card">
             <h2>Recent sales</h2>
