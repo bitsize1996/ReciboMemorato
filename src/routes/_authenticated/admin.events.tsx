@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +37,7 @@ const EMPTY: EventInput = {
   location: "",
   cover_url: "",
   category_id: null,
+  cover_position: null,
   drive_folder_id: "",
   digitals_folder_id: "",
   gif_folder_id: "",
@@ -56,6 +57,84 @@ function extractFolderId(value: string): string {
   const match =
     value.match(/folders\/([A-Za-z0-9_-]+)/) ?? value.match(/[?&]id=([A-Za-z0-9_-]+)/);
   return match?.[1] ?? value.trim();
+}
+
+function parsePosition(value: string | null | undefined): [number, number] {
+  const match = value?.match(/^(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%$/);
+  return match ? [Number(match[1]), Number(match[2])] : [50, 50];
+}
+
+/** Lets the owner choose which part of the cover stays visible when it is cropped. */
+function CoverFocus({
+  url,
+  position,
+  onChange,
+}: {
+  url: string;
+  position: string | null | undefined;
+  onChange: (value: string) => void;
+}) {
+  const [x, y] = parsePosition(position);
+  const pick = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
+    const ny = Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100));
+    onChange(`${Math.round(nx)}% ${Math.round(ny)}%`);
+  };
+  return (
+    <div style={{ marginTop: 8 }}>
+      <p>Tap or drag on the photo to choose the part that must stay visible, such as a face.</p>
+      <div
+        style={{
+          position: "relative",
+          display: "inline-block",
+          lineHeight: 0,
+          touchAction: "none",
+          cursor: "crosshair",
+        }}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          pick(e);
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons) pick(e);
+        }}
+      >
+        <img
+          src={url}
+          alt="Cover"
+          draggable={false}
+          style={{ display: "block", maxWidth: "100%", maxHeight: 280 }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            left: `${x}%`,
+            top: `${y}%`,
+            width: 22,
+            height: 22,
+            marginLeft: -11,
+            marginTop: -11,
+            borderRadius: "50%",
+            border: "3px solid #fff",
+            boxShadow: "0 0 0 2px #d40e14",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+      <p style={{ marginTop: 12 }}>How it looks on the website:</p>
+      <div style={{ aspectRatio: "4 / 3", width: 240, overflow: "hidden" }}>
+        <img
+          src={url}
+          alt=""
+          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${x}% ${y}%` }}
+        />
+      </div>
+      <button type="button" className="admin-link" onClick={() => onChange("50% 50%")}>
+        Center
+      </button>
+    </div>
+  );
 }
 
 /** Shrinks a chosen photo to a web-friendly JPEG (max 1600px wide). */
@@ -218,6 +297,7 @@ function AdminEventsPage() {
       }
       const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
       set("cover_url", data.publicUrl);
+      set("cover_position", "");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -319,20 +399,23 @@ function AdminEventsPage() {
             </label>
             {uploading ? <p>Uploading…</p> : null}
             {form.cover_url ? (
-              <div style={{ marginTop: 8 }}>
-                <img
-                  src={form.cover_url}
-                  alt="Cover preview"
-                  style={{ display: "block", maxWidth: 240, maxHeight: 180, objectFit: "cover" }}
+              <>
+                <CoverFocus
+                  url={form.cover_url}
+                  position={form.cover_position}
+                  onChange={(value) => set("cover_position", value)}
                 />
                 <button
                   type="button"
                   className="admin-link"
-                  onClick={() => set("cover_url", "")}
+                  onClick={() => {
+                    set("cover_url", "");
+                    set("cover_position", "");
+                  }}
                 >
                   Remove cover
                 </button>
-              </div>
+              </>
             ) : null}
           </div>
           {FOLDER_FIELDS.map(([key, label]) => (

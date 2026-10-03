@@ -49,6 +49,7 @@ export function EventCard({ event }: { event: GalleryEvent }) {
             alt={event.name}
             loading="lazy"
             decoding="async"
+            style={event.coverPosition ? { objectPosition: event.coverPosition } : undefined}
             onError={() => setCoverFailed(true)}
           />
         ) : (

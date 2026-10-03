@@ -1,18 +1,22 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDown,
+  ArrowUp,
   ArrowUpRight,
   Camera,
   Check,
   ChevronDown,
+  Facebook,
   Heart,
   Instagram,
   Maximize2,
+  Menu,
   MessageCircle,
   ReceiptText,
   Sparkles,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +30,20 @@ const eventsQuery = queryOptions({
   queryKey: ["events"],
   queryFn: () => listPublishedEvents(),
 });
+
+// Social pages shown in the footer.
+const SOCIAL_LINKS = [
+  {
+    label: "Recibo Memorato on Facebook",
+    href: "https://www.facebook.com/recibomemoratobybitsizesibs",
+    icon: Facebook,
+  },
+  {
+    label: "Recibo Memorato on Instagram",
+    href: "https://www.instagram.com/recibomemorato2026",
+    icon: Instagram,
+  },
+];
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -89,6 +107,142 @@ function BrandMark({ s }: { s: SiteSettings }) {
       <span>{s.brandLine2}</span>
       <small>{s.brandSub}</small>
     </a>
+  );
+}
+
+// Navigation: stays visible while scrolling, highlights the section being read,
+// works on phones through a menu, and keeps "Contact" and the admin login one tap away.
+const NAV_CSS = `
+.nav-shell { position: fixed; z-index: 40; top: 0; left: 0; right: 0; transition: background .25s, box-shadow .25s; }
+.nav-shell .site-header { position: relative; transition: padding .25s; }
+.nav-shell.is-scrolled { background: color-mix(in oklab, var(--background) 94%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 1px 0 var(--border); }
+.nav-shell.is-scrolled .site-header { padding-top: 12px; padding-bottom: 12px; }
+.nav-shell .site-header nav a { padding: 8px 0; }
+.nav-shell .site-header nav a.is-active { border-color: var(--primary); color: var(--primary); }
+.nav-shell .site-header nav a.nav-admin { padding: 8px 14px; border: 1px solid var(--foreground); border-radius: 999px; }
+.nav-shell .site-header nav a.nav-admin:hover { background: var(--foreground); color: var(--background); }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.nav-toggle { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--foreground); border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.nav-panel { display: grid; max-height: calc(100svh - 76px); overflow-y: auto; padding: 4px clamp(20px, 5vw, 76px) 22px; border-top: 1px solid var(--border); background: var(--background); font-family: var(--font-mono); font-size: 13px; text-transform: uppercase; }
+.nav-panel a { padding: 17px 4px; border-bottom: 1px dashed var(--border); }
+.nav-panel a.is-active { color: var(--primary); }
+.nav-panel a.nav-admin { margin-top: 14px; border: 1px solid var(--foreground); border-radius: 999px; text-align: center; }
+.to-top { position: fixed; z-index: 40; right: 16px; bottom: 16px; display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid var(--foreground); border-radius: 50%; background: var(--background); color: var(--foreground); box-shadow: 0 8px 24px color-mix(in oklab, var(--foreground) 20%, transparent); opacity: 0; transform: translateY(10px); pointer-events: none; cursor: pointer; transition: opacity .2s, transform .2s; }
+.to-top.is-visible { opacity: 1; transform: none; pointer-events: auto; }
+section[id], footer[id] { scroll-margin-top: 76px; }
+.faq-intro { top: 100px; }
+@media (min-width: 768px) { .nav-toggle, .nav-panel { display: none; } }
+`;
+
+function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: string[] }) {
+  const [scrolled, setScrolled] = useState(false);
+  const [showTop, setShowTop] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<string | null>(null);
+  const hiddenKey = hiddenSections.join(",");
+
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 24);
+      setShowTop(window.scrollY > 700);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Highlight the link for the section currently on screen.
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const targets = ["services", "story", "faqs", "contact"]
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => Boolean(el));
+    if (targets.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = entry.target.id;
+          if (entry.isIntersecting) setActive(id);
+          else setActive((current) => (current === id ? null : current));
+        }
+      },
+      { rootMargin: "-35% 0px -55% 0px" },
+    );
+    targets.forEach((target) => observer.observe(target));
+    return () => observer.disconnect();
+  }, [hiddenKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const shown = (key: string) => !hiddenSections.includes(key);
+  const close = () => setOpen(false);
+  const cls = (id: string) => (active === id ? "is-active" : undefined);
+
+  return (
+    <>
+      <style>{NAV_CSS}</style>
+      <div className={`nav-shell${scrolled || open ? " is-scrolled" : ""}`}>
+        <header className="site-header">
+          <BrandMark s={s} />
+          <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
+            {shown("services") ? <a href="#services" className={cls("services")}>Services</a> : null}
+            <Link to="/memories">Memory archive</Link>
+            {shown("story") ? <a href="#story" className={cls("story")}>Our story</a> : null}
+            {shown("faqs") ? <a href="#faqs" className={cls("faqs")}>FAQs</a> : null}
+            <a href="#contact" className={cls("contact")}>Contact</a>
+            <Link to="/auth" className="nav-admin">Admin login</Link>
+          </nav>
+          <div className="nav-actions">
+            <a
+              className="header-message"
+              href={s.messengerUrl}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Message ${s.brandLine1} ${s.brandLine2}`}
+            >
+              <MessageCircle className="size-5" aria-hidden="true" />
+            </a>
+            <button
+              type="button"
+              className="nav-toggle"
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="mobile-nav"
+              onClick={() => setOpen((value) => !value)}
+            >
+              {open ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+            </button>
+          </div>
+        </header>
+        {open ? (
+          <nav id="mobile-nav" className="nav-panel" aria-label="Mobile navigation">
+            {shown("services") ? <a href="#services" onClick={close} className={cls("services")}>Services</a> : null}
+            <Link to="/memories" onClick={close}>Memory archive</Link>
+            {shown("story") ? <a href="#story" onClick={close} className={cls("story")}>Our story</a> : null}
+            {shown("faqs") ? <a href="#faqs" onClick={close} className={cls("faqs")}>FAQs</a> : null}
+            <a href="#contact" onClick={close} className={cls("contact")}>Contact</a>
+            <a href={s.messengerUrl} target="_blank" rel="noreferrer" onClick={close}>Message us on Messenger</a>
+            <Link to="/auth" onClick={close} className="nav-admin">Admin login</Link>
+          </nav>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        className={`to-top${showTop ? " is-visible" : ""}`}
+        aria-label="Back to top"
+        tabIndex={showTop ? 0 : -1}
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      >
+        <ArrowUp className="size-5" aria-hidden="true" />
+      </button>
+    </>
   );
 }
 
@@ -302,26 +456,21 @@ function Index() {
 
   return (
     <main id="top" className="overflow-hidden bg-background text-foreground">
-      <header className="site-header">
-        <BrandMark s={s} />
-        <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
-          <a href="#services">Services</a>
-          <Link to="/memories">Memory archive</Link>
-          <a href="#story">Our story</a>
-          <a href="#faqs">FAQs</a>
-        </nav>
-        <a className="header-message" href={s.messengerUrl} target="_blank" rel="noreferrer" aria-label={`Message ${s.brandLine1} ${s.brandLine2}`}>
-          <MessageCircle className="size-5" aria-hidden="true" />
-        </a>
-      </header>
+      <SiteHeader s={s} hiddenSections={h.hiddenSections} />
 
       {h.sectionOrder.map((key) => h.hiddenSections.includes(key) ? null : <div className="contents" key={key}>{sections[key]}</div>)}
 
       <footer className="site-footer" id="contact">
         <BrandMark s={s} />
         <p>{h.footerDescription}</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><a href="#faqs">FAQs</a><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
-        <a href={s.messengerUrl} className="footer-social" target="_blank" rel="noreferrer" aria-label="Find us on social media"><Instagram aria-hidden="true" /></a>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/memories">Memory archive</Link><a href="#faqs">FAQs</a><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
+        <div className="flex items-center gap-4">
+          {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+            <a key={href} href={href} className="footer-social" target="_blank" rel="noreferrer" aria-label={label}>
+              <Icon aria-hidden="true" />
+            </a>
+          ))}
+        </div>
         <small>© 2026 {s.brandLine1} {s.brandLine2}. {h.footerClosing}</small>
       </footer>
     </main>

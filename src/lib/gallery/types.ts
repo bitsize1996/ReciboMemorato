@@ -32,6 +32,8 @@ export interface GalleryEvent {
   eventDate: string | null;
   location: string | null;
   coverUrl: string | null;
+  /** CSS object-position chosen by the owner, e.g. "50% 20%". */
+  coverPosition: string | null;
   isSample: boolean;
   /** Event category chosen by the owner (Birthday, Wedding…), if any. */
   categoryId: string | null;

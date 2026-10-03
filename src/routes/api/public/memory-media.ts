@@ -14,16 +14,24 @@ export const Route = createFileRoute("/api/public/memory-media")({
         const wantsDownload = url.searchParams.get("dl") === "1";
         if (!id) return new Response("Not found", { status: 404 });
 
-        const { publicSupabase } = await import("@/lib/gallery/events.server");
-        const { data: media } = await publicSupabase()
+        // Looked up on the server so the public database key never needs to read Drive file ids.
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const db = supabaseAdmin as any;
+        const { data: media } = await db
           .from("media_items")
-          .select("id, name, drive_file_id, full_url, mime_type, source, download_enabled")
+          .select("id, name, drive_file_id, full_url, mime_type, source, download_enabled, event_id")
           .eq("id", id)
           .eq("published", true)
           .neq("source", "sample")
           .maybeSingle();
 
         if (!media) return new Response("Not found", { status: 404 });
+        const { data: event } = await db
+          .from("events")
+          .select("published")
+          .eq("id", media.event_id)
+          .maybeSingle();
+        if (!event?.published) return new Response("Not found", { status: 404 });
         if (wantsDownload && !media.download_enabled) {
           return new Response("Not found", { status: 404 });
         }
