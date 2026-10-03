@@ -14,13 +14,13 @@ async function assertAdmin(context: Ctx) {
 }
 
 /**
- * Optional safety net for the first-owner claim. When ADMIN_EMAIL is set,
- * only the account with that email may claim owner access; when it is not
- * set, behaviour is unchanged (first signed-in account can claim).
+ * First-owner claim. Only the account whose email matches the ADMIN_EMAIL
+ * setting may claim owner access, and only while no owner exists yet. With no
+ * ADMIN_EMAIL configured, nobody can claim ownership from the website.
  */
 function mayClaimAdmin(claims: unknown): boolean {
   const allowed = process.env["ADMIN_EMAIL"]?.trim().toLowerCase();
-  if (!allowed) return true;
+  if (!allowed) return false;
   const email = (claims as { email?: string } | undefined)?.email?.trim().toLowerCase();
   return email === allowed;
 }

@@ -53,7 +53,8 @@ export const Route = createFileRoute("/api/public/memory-media")({
         const headers = new Headers({
           "content-type":
             upstream.headers.get("content-type") ?? media.mime_type ?? "image/jpeg",
-          "cache-control": "public, max-age=86400",
+          // Short cache: photos you unpublish stop being served within a few minutes.
+          "cache-control": wantsDownload ? "private, no-store" : "public, max-age=300",
           "accept-ranges": upstream.headers.get("accept-ranges") ?? "bytes",
         });
         for (const name of ["content-length", "content-range"]) {
