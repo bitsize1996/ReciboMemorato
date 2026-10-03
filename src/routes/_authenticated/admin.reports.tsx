@@ -33,7 +33,7 @@ function ReportsPage() {
     .filter((s) => s.payment_status !== "cancelled")
     .filter((s) => (!range.from && !range.to) || inRange(s.booking_date, range));
   const t = sumSales(rows);
-  const gross = rows.reduce((a, s) => a + Number(s.selling_price), 0);
+  const gross = rows.reduce((a, s) => a + Number(s.selling_price) + s.totals.addons, 0);
 
   const expenseRows = expenses.data ?? [];
   const business = businessExpenseTotals(expenseRows, range);

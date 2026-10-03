@@ -102,7 +102,7 @@ function SaleForm({ onDone }: { onDone: () => void }) {
   const packages = usePackages();
   const materials = useMaterials();
   const [f, setF] = useState({
-    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_date: "",
+    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", event_date: "",
     booking_date: new Date().toISOString().slice(0, 10), package_id: "", quantity: "1",
     selling_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "",
   });
@@ -131,11 +131,12 @@ function SaleForm({ onDone }: { onDone: () => void }) {
     const { data, error } = await supabase.from("sales").insert({
       customer_name: f.customer_name.trim(), customer_contact: f.customer_contact || null,
       customer_email: f.customer_email.trim() || null, event_time: f.event_time || null,
-      event_name: f.event_name || null, event_date: f.event_date || null, booking_date: f.booking_date,
+      event_name: f.event_name || null, event_theme: f.event_theme.trim() || null, event_venue: f.event_venue.trim() || null,
+      event_date: f.event_date || null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
       selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: n(f.amount_paid),
       payment_status: f.payment_status, notes: f.notes || null,
-    }).select("id").single();
+    } as never).select("id").single();
     if (error) { setBusy(false); return setErr(error.message); }
     const valid = lines.filter((l) => l.name && n(l.quantity) > 0);
     if (valid.length) {
@@ -159,6 +160,8 @@ function SaleForm({ onDone }: { onDone: () => void }) {
       <label>Customer contact<input value={f.customer_contact} onChange={(e) => set("customer_contact", e.target.value)} /></label>
       <label>Customer email<input type="email" value={f.customer_email} onChange={(e) => set("customer_email", e.target.value)} /></label>
       <label>Event name<input value={f.event_name} onChange={(e) => set("event_name", e.target.value)} /></label>
+      <label>Theme<input value={f.event_theme} onChange={(e) => set("event_theme", e.target.value)} /></label>
+      <label>Location / venue<input value={f.event_venue} onChange={(e) => set("event_venue", e.target.value)} /></label>
       <label>Event date<input type="date" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} /></label>
       <label>Event start time<input type="time" value={f.event_time} onChange={(e) => set("event_time", e.target.value)} /></label>
       <label>Booking date<input type="date" required value={f.booking_date} onChange={(e) => set("booking_date", e.target.value)} /></label>

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Stat } from "@/components/admin/RangeFilter";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { usePackages, useSales } from "@/lib/admin-data";
+import { useAddons, usePackages, useSales } from "@/lib/admin-data";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
 import { n, peso, saleCode } from "@/lib/finance";
 import { siteSettingsQuery } from "@/lib/site.functions";
@@ -205,6 +205,20 @@ function Detail({ row }: { row: InquiryRow }) {
   const sales = useSales();
   const biz = useBusinessInfo();
   const site = useQuery(siteSettingsQuery);
+  const addons = useAddons();
+  const [addonPick, setAddonPick] = useState({ id: "", qty: "1" });
+  const chosen = useQuery({
+    queryKey: ["biz", "inquiry-addons", row.id],
+    queryFn: async () => {
+      const { data, error: dbError } = await (supabase as any)
+        .from("inquiry_addons")
+        .select("*")
+        .eq("inquiry_id", row.id)
+        .order("created_at", { ascending: true });
+      if (dbError) return [];
+      return data as { id: string; addon_id: string | null; name_snapshot: string; price_snapshot: number; quantity: number }[];
+    },
+  });
   const [copied, setCopied] = useState(false);
   const [notes, setNotes] = useState(row.internal_notes ?? "");
   const [quoted, setQuoted] = useState(row.quoted_amount != null ? String(row.quoted_amount) : "");
@@ -234,6 +248,35 @@ function Detail({ row }: { row: InquiryRow }) {
       ...(status === "contacted" ? { last_contact_at: new Date().toISOString() } : {}),
     });
 
+  const chosenAddons = chosen.data ?? [];
+  const chosenPackage = packages.data?.find((p) => p.id === row.package_id);
+  const addonsTotal = chosenAddons.reduce((a, x) => a + n(x.price_snapshot) * n(x.quantity), 0);
+  const estimate = n(chosenPackage?.selling_price) + addonsTotal;
+
+  const refreshAddons = () => qc.invalidateQueries({ queryKey: ["biz", "inquiry-addons", row.id] });
+
+  async function changePackage(packageId: string) {
+    const pkg = packages.data?.find((p) => p.id === packageId);
+    update.mutate({ package_id: packageId || null, package_interest: pkg?.name ?? null });
+  }
+
+  async function addChosenAddon() {
+    const addon = addons.data?.rows.find((a) => a.id === addonPick.id);
+    if (!addon) return;
+    const { error: dbError } = await (supabase as any).from("inquiry_addons").insert({
+      inquiry_id: row.id, addon_id: addon.id, name_snapshot: addon.name,
+      price_snapshot: n(addon.price), quantity: Math.max(1, n(addonPick.qty) || 1),
+    });
+    if (dbError) return setError(dbError.message);
+    setAddonPick({ id: "", qty: "1" });
+    refreshAddons();
+  }
+
+  async function removeChosenAddon(id: string) {
+    await (supabase as any).from("inquiry_addons").delete().eq("id", id);
+    refreshAddons();
+  }
+
   const sameDay = (sales.data ?? []).filter(
     (s) => row.event_date && s.event_date === row.event_date && s.payment_status !== "cancelled",
   );
@@ -243,7 +286,7 @@ function Detail({ row }: { row: InquiryRow }) {
     setBusy(true);
     setError(null);
     const pkg = packages.data?.find((p) => p.id === row.package_id);
-    const price = pkg ? n(pkg.selling_price) : n(quoted || row.quoted_amount);
+    const price = pkg ? n(pkg.selling_price) : Math.max(n(quoted || row.quoted_amount) - addonsTotal, 0);
     const { data, error: saleError } = await supabase
       .from("sales")
       .insert({
@@ -251,6 +294,8 @@ function Detail({ row }: { row: InquiryRow }) {
         customer_contact: row.contact,
         customer_email: row.email,
         event_name: `${row.event_type ?? "Event"} – ${row.name}`,
+        event_theme: row.theme,
+        event_venue: row.venue,
         event_date: row.event_date,
         package_id: pkg?.id ?? null,
         package_name_snapshot: pkg?.name ?? row.package_interest ?? null,
@@ -278,6 +323,14 @@ function Detail({ row }: { row: InquiryRow }) {
         })),
       );
     }
+    if (chosenAddons.length > 0) {
+      await (supabase as any).from("sale_addons").insert(
+        chosenAddons.map((a) => ({
+          sale_id: data.id, addon_id: a.addon_id, name_snapshot: a.name_snapshot,
+          unit_price_snapshot: n(a.price_snapshot), quantity: n(a.quantity),
+        })),
+      );
+    }
     await (supabase as any)
       .from("inquiries")
       .update({ status: "booked", sale_id: data.id, updated_at: new Date().toISOString() })
@@ -295,7 +348,11 @@ function Detail({ row }: { row: InquiryRow }) {
     refresh();
   }
 
-  const reply = inquiryReplyMessage(row, brandName(site.data));
+  const reply = inquiryReplyMessage(row, brandName(site.data), {
+    packageName: chosenPackage?.name ?? row.package_interest,
+    addons: chosenAddons.map((a) => ({ name: a.name_snapshot, quantity: n(a.quantity), price: n(a.price_snapshot) })),
+    estimate,
+  });
   const replyUrl = gmailComposeUrl({ from: biz.data?.email, to: row.email ?? "", subject: reply.subject, body: reply.body });
 
   const phone = row.contact && /^[+\d][\d\s()-]{6,}$/.test(row.contact) ? row.contact.replace(/[^\d+]/g, "") : null;
@@ -332,9 +389,9 @@ function Detail({ row }: { row: InquiryRow }) {
             .filter(Boolean)
             .join(" · ") || "—"}
         </div>
-        {row.package_interest ? (
+        {row.theme ? (
           <div>
-            <strong>Interested in:</strong> {row.package_interest}
+            <strong>Theme:</strong> {row.theme}
           </div>
         ) : null}
         {row.message ? (
@@ -350,6 +407,51 @@ function Detail({ row }: { row: InquiryRow }) {
           {sameDay.map((s) => `${saleCode(s.sale_number)} ${s.customer_name}`).join(", ")}
         </p>
       ) : null}
+
+      <div style={{ display: "grid", gap: 10, padding: 12, border: "1px dashed var(--adm-line)", borderRadius: 8 }}>
+        <strong>Package &amp; add-ons they want</strong>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          Package
+          <select value={row.package_id ?? ""} onChange={(e) => changePackage(e.target.value)} disabled={update.isPending}>
+            <option value="">Not chosen yet</option>
+            {(packages.data ?? []).filter((p) => p.active || p.id === row.package_id).map((p) => (
+              <option key={p.id} value={p.id}>{p.name} — {peso(p.selling_price)}</option>
+            ))}
+          </select>
+        </label>
+        {chosenPackage?.included_services ? <small className="adm-hint">Includes: {chosenPackage.included_services}</small> : null}
+        {chosenAddons.length > 0 ? (
+          <div style={{ display: "grid", gap: 4 }}>
+            {chosenAddons.map((a) => (
+              <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <span style={{ flex: 1 }}>{a.name_snapshot}{n(a.quantity) > 1 ? ` × ${n(a.quantity)}` : ""}</span>
+                <span>{peso(n(a.price_snapshot) * n(a.quantity))}</span>
+                <button type="button" className="admin-link" onClick={() => removeChosenAddon(a.id)}>Remove</button>
+              </div>
+            ))}
+          </div>
+        ) : <small className="adm-hint">No add-ons chosen.</small>}
+        {addons.data?.ready && addons.data.rows.length > 0 ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={addonPick.id} onChange={(e) => setAddonPick({ ...addonPick, id: e.target.value })}>
+              <option value="">Add an add-on…</option>
+              {addons.data.rows.filter((a) => a.active).map((a) => (
+                <option key={a.id} value={a.id}>{a.name} — {peso(a.price)}</option>
+              ))}
+            </select>
+            <input type="number" min="1" style={{ width: 70 }} value={addonPick.qty} onChange={(e) => setAddonPick({ ...addonPick, qty: e.target.value })} aria-label="Quantity" />
+            <Button type="button" size="sm" variant="outline" disabled={!addonPick.id} onClick={addChosenAddon}>Add</Button>
+          </div>
+        ) : null}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <strong>Estimated total: {peso(estimate)}</strong>
+          {estimate > 0 && n(row.quoted_amount) !== estimate ? (
+            <Button type="button" size="sm" variant="outline" onClick={() => { setQuoted(String(estimate)); update.mutate({ quoted_amount: estimate }); }}>
+              Use as my quote
+            </Button>
+          ) : null}
+        </div>
+      </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <label style={{ display: "flex", gap: 6, alignItems: "center" }}>

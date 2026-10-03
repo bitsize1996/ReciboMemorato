@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { n, peso, saleCode, statusLabel } from "@/lib/finance";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
 import { siteSettingsQuery } from "@/lib/site.functions";
@@ -21,15 +22,24 @@ function Invoice() {
   const q = useQuery({
     queryKey: ["biz", "sale", saleId, "invoice"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sales").select("*").eq("id", saleId).maybeSingle();
-      if (error) throw error;
-      return data;
+      const run = (fields: string) => (supabase as any).from("sales").select(fields).eq("id", saleId).maybeSingle();
+      let result = await run("*, sale_addons(*)");
+      if (result.error) result = await run("*");
+      if (result.error) throw result.error;
+      return result.data as (Database["public"]["Tables"]["sales"]["Row"] & {
+        sale_addons?: { id: string; name_snapshot: string; unit_price_snapshot: number; quantity: number; total_price: number }[];
+        event_theme?: string | null;
+        event_venue?: string | null;
+      }) | null;
     },
   });
   if (q.isPending) return <div className="adm-page"><p>Loading…</p></div>;
   if (!q.data) return <div className="adm-page"><p>Sale not found.</p></div>;
   const s = q.data;
-  const net = n(s.selling_price) - n(s.discount);
+  const addonLines = s.sale_addons ?? [];
+  const addonsTotal = addonLines.reduce((a, x) => a + n(x.total_price), 0);
+  const subtotal = n(s.selling_price) + addonsTotal;
+  const net = subtotal - n(s.discount);
   const balance = net - n(s.amount_paid);
   const unit = s.quantity ? n(s.selling_price) / s.quantity : n(s.selling_price);
   const payment = biz.data?.paymentInstructions ?? "";
@@ -63,14 +73,21 @@ function Invoice() {
           <div><div className="inv-muted">Billed to</div><strong>{s.customer_name}</strong>
             {s.customer_contact && <div>{s.customer_contact}</div>}{s.customer_email && <div>{s.customer_email}</div>}</div>
           <div><div className="inv-muted">Event</div><strong>{s.event_name ?? "—"}</strong>
-            <div>{s.event_date ?? "Date to be confirmed"}{s.event_time ? ` · ${s.event_time}` : ""}</div></div>
+            <div>{s.event_date ?? "Date to be confirmed"}{s.event_time ? ` · ${s.event_time}` : ""}</div>
+            {s.event_theme ? <div>Theme: {s.event_theme}</div> : null}
+            {s.event_venue ? <div>Location: {s.event_venue}</div> : null}</div>
         </section>
         <table className="inv-table">
           <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
-          <tbody><tr><td>{s.package_name_snapshot ?? "Photobooth service"}</td><td>{s.quantity}</td><td>{peso(unit)}</td><td>{peso(s.selling_price)}</td></tr></tbody>
+          <tbody>
+            <tr><td>{s.package_name_snapshot ?? "Photobooth service"}</td><td>{s.quantity}</td><td>{peso(unit)}</td><td>{peso(s.selling_price)}</td></tr>
+            {addonLines.map((a) => (
+              <tr key={a.id}><td>Add-on: {a.name_snapshot}</td><td>{n(a.quantity)}</td><td>{peso(a.unit_price_snapshot)}</td><td>{peso(a.total_price)}</td></tr>
+            ))}
+          </tbody>
         </table>
         <dl className="inv-totals">
-          <dt>Subtotal</dt><dd>{peso(s.selling_price)}</dd>
+          <dt>Subtotal</dt><dd>{peso(subtotal)}</dd>
           {n(s.discount) > 0 && <><dt>Discount</dt><dd>− {peso(s.discount)}</dd></>}
           <dt><strong>Total</strong></dt><dd><strong>{peso(net)}</strong></dd>
           <dt>Amount paid</dt><dd>{peso(s.amount_paid)}</dd>

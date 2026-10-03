@@ -53,10 +53,15 @@ interface SaleLike {
   discount: unknown;
   amount_paid: unknown;
   payment_status: string;
+  event_theme?: string | null;
+  event_venue?: string | null;
+  sale_addons?: { name_snapshot: string; quantity: unknown; total_price: unknown }[] | null;
 }
 
 export function invoiceMessage(sale: SaleLike, brand: string, paymentInstructions: string) {
-  const total = n(sale.selling_price) - n(sale.discount);
+  const addons = sale.sale_addons ?? [];
+  const addonsTotal = addons.reduce((a, x) => a + n(x.total_price), 0);
+  const total = n(sale.selling_price) + addonsTotal - n(sale.discount);
   const balance = total - n(sale.amount_paid);
   const when = [sale.event_date, sale.event_time].filter(Boolean).join(" · ");
   const lines = [
@@ -65,7 +70,12 @@ export function invoiceMessage(sale: SaleLike, brand: string, paymentInstruction
     `Here is your invoice ${saleCode(sale.sale_number)} from ${brand}.`,
     "",
     sale.event_name ? `Event: ${sale.event_name}${when ? ` (${when})` : ""}` : when ? `Event date: ${when}` : "",
-    `Package: ${sale.package_name_snapshot ?? "Photobooth service"}${n(sale.quantity) > 1 ? ` × ${n(sale.quantity)}` : ""}`,
+    sale.event_theme ? `Theme: ${sale.event_theme}` : "",
+    sale.event_venue ? `Location: ${sale.event_venue}` : "",
+    `Package: ${sale.package_name_snapshot ?? "Photobooth service"}${n(sale.quantity) > 1 ? ` × ${n(sale.quantity)}` : ""} — ${peso(sale.selling_price)}`,
+    ...(addons.length > 0
+      ? ["Add-ons:", ...addons.map((a) => `  • ${a.name_snapshot}${n(a.quantity) > 1 ? ` × ${n(a.quantity)}` : ""} — ${peso(a.total_price)}`)]
+      : []),
     "",
     `Total: ${peso(total)}`,
     n(sale.discount) > 0 ? `(includes a discount of ${peso(sale.discount)})` : "",
@@ -83,14 +93,33 @@ export function invoiceMessage(sale: SaleLike, brand: string, paymentInstruction
   };
 }
 
-export function inquiryReplyMessage(inquiry: InquiryRow, brand: string) {
-  const details = [inquiry.event_type, inquiry.event_date, inquiry.venue].filter(Boolean).join(" · ");
+export interface InquiryChoice {
+  packageName: string | null;
+  addons: { name: string; quantity: number; price: number }[];
+  estimate: number;
+}
+
+export function inquiryReplyMessage(inquiry: InquiryRow, brand: string, choice?: InquiryChoice) {
+  const details = [inquiry.event_type, inquiry.theme ? `theme: ${inquiry.theme}` : null, inquiry.event_date, inquiry.venue]
+    .filter(Boolean)
+    .join(" · ");
+  const chosen =
+    choice && (choice.packageName || choice.addons.length > 0)
+      ? [
+          "What you picked:",
+          choice.packageName ? `• Package: ${choice.packageName}` : "",
+          ...choice.addons.map((a) => `• Add-on: ${a.name}${a.quantity > 1 ? ` × ${a.quantity}` : ""}`),
+          choice.estimate > 0 ? `Estimated total: ${peso(choice.estimate)} (we'll confirm the final quote).` : "",
+          "",
+        ]
+      : [];
   const lines = [
     `Hi ${inquiry.name},`,
     "",
     `Thank you for your inquiry (${inquiryCode(inquiry.inquiry_number)}) with ${brand}!`,
     details ? `We received your details: ${details}.` : "",
     "",
+    ...chosen,
     "We'd love to be part of your event. To prepare your quote, could you please confirm:",
     "• the event date and start time",
     "• the venue",

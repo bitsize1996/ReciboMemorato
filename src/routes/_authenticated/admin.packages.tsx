@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useMaterials, usePackages } from "@/lib/admin-data";
+import { useAddons, useMaterials, usePackages } from "@/lib/admin-data";
 import { margin, n, pct, peso } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/admin/packages")({
@@ -18,6 +18,84 @@ type Form = {
   included_services: string; notes: string; active: boolean; lines: Line[];
 };
 const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [] };
+
+type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean };
+const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true };
+
+function AddonsSection() {
+  const qc = useQueryClient();
+  const addons = useAddons();
+  const [form, setForm] = useState<AddonForm | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const rows = addons.data?.rows ?? [];
+  const set = (k: keyof AddonForm, v: string | boolean) => setForm((f) => (f ? { ...f, [k]: v } : f));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form) return;
+    const payload = {
+      name: form.name.trim(), description: form.description.trim() || null,
+      price: n(form.price), sort_order: Math.round(n(form.sort_order)), active: form.active,
+    };
+    const table = (supabase as any).from("addons");
+    const { error } = form.id ? await table.update(payload).eq("id", form.id) : await table.insert(payload);
+    if (error) return setErr(error.message);
+    setForm(null); setErr(null);
+    qc.invalidateQueries({ queryKey: ["biz", "addons"] });
+    qc.invalidateQueries({ queryKey: ["booking-options"] });
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Delete this add-on? Past bookings keep it.")) return;
+    const { error } = await (supabase as any).from("addons").delete().eq("id", id);
+    if (error) return setErr(error.message);
+    qc.invalidateQueries({ queryKey: ["biz", "addons"] });
+    qc.invalidateQueries({ queryKey: ["booking-options"] });
+  }
+
+  return (
+    <section className="adm-card">
+      <div className="adm-head">
+        <div>
+          <h2>Add-ons</h2>
+          <p className="adm-hint">Extras customers can tick on the booking form, such as an extra hour or more prints. Each shows its price and is added to their booking.</p>
+        </div>
+        <Button size="sm" onClick={() => setForm(EMPTY_ADDON)}>+ Add add-on</Button>
+      </div>
+      {err && <p className="adm-error">{err}</p>}
+      {addons.data && !addons.data.ready && (
+        <p className="adm-error">Add-ons need a one-time database setup before they can be used. Once it has been run, reload this page.</p>
+      )}
+      {form && (
+        <form className="adm-form" onSubmit={save}>
+          <label>Add-on name<input required value={form.name} placeholder="Extra hour, 20 extra prints…" onChange={(e) => set("name", e.target.value)} /></label>
+          <label>Price (₱)<input type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
+          <label className="adm-wide">What it includes<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
+          <label>Order on the form (lower shows first)<input type="number" value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
+          <label className="adm-check"><input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} /> Show on the booking form</label>
+          <div className="adm-row"><Button type="submit">Save</Button><Button type="button" variant="outline" onClick={() => setForm(null)}>Cancel</Button></div>
+        </form>
+      )}
+      {addons.data?.ready && !rows.length && !form ? <p className="adm-empty">No add-ons yet.</p> : null}
+      {rows.length > 0 && (
+        <table className="adm-table">
+          <thead><tr><th>Add-on</th><th>Price</th><th>Shown</th><th /></tr></thead>
+          <tbody>{rows.map((a) => (
+            <tr key={a.id}>
+              <td>{a.name}{a.description ? <small className="adm-hint"> — {a.description}</small> : null}</td>
+              <td>{peso(a.price)}</td>
+              <td>{a.active ? "Yes" : "Hidden"}</td>
+              <td className="adm-actions">
+                <button onClick={() => setForm({ id: a.id, name: a.name, description: a.description ?? "", price: String(a.price), sort_order: String(a.sort_order), active: a.active })}>Edit</button>
+                <button onClick={() => remove(a.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+    </section>
+  );
+}
 
 function PackagesPage() {
   const qc = useQueryClient();
@@ -171,6 +249,7 @@ function PackagesPage() {
           })}
         </div>
       )}
+      <AddonsSection />
     </div>
   );
 }

@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useMaterials } from "@/lib/admin-data";
+import type { Database } from "@/integrations/supabase/types";
+import { useAddons, useMaterials } from "@/lib/admin-data";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel } from "@/lib/finance";
@@ -23,14 +24,26 @@ function SaleDetail() {
   const sale = useQuery({
     queryKey: ["biz", "sale", saleId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sales")
-        .select("*, packages(name), sale_materials(*), sale_expenses(*)").eq("id", saleId).maybeSingle();
-      if (error) throw error;
-      return data;
+      const run = (fields: string) =>
+        (supabase as any).from("sales").select(fields).eq("id", saleId).maybeSingle();
+      // Add-ons and event details need their database setup; fall back without them.
+      let result = await run("*, packages(name), sale_materials(*), sale_expenses(*), sale_addons(*)");
+      if (result.error) result = await run("*, packages(name), sale_materials(*), sale_expenses(*)");
+      if (result.error) throw result.error;
+      return result.data as (Database["public"]["Tables"]["sales"]["Row"] & {
+        packages: { name: string } | null;
+        sale_materials: Database["public"]["Tables"]["sale_materials"]["Row"][];
+        sale_expenses: Database["public"]["Tables"]["sale_expenses"]["Row"][];
+        sale_addons?: { id: string; name_snapshot: string; unit_price_snapshot: number; quantity: number; total_price: number }[];
+        event_theme?: string | null;
+        event_venue?: string | null;
+      }) | null;
     },
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
   const materials = useMaterials();
+  const addonCatalog = useAddons();
+  const [addonPick, setAddonPick] = useState<null | { addon_id: string; quantity: string }>(null);
   const biz = useBusinessInfo();
   const site = useQuery(siteSettingsQuery);
   const [mat, setMat] = useState<null | { material_id: string; quantity: string }>(null);
@@ -75,13 +88,26 @@ function SaleDetail() {
     setMat(null); setErr(null); refresh();
   }
 
+  async function addAddon(e: React.FormEvent) {
+    e.preventDefault();
+    if (!addonPick) return;
+    const a = addonCatalog.data?.rows.find((x) => x.id === addonPick.addon_id);
+    if (!a || n(addonPick.quantity) <= 0) return setErr("Choose an add-on and a quantity.");
+    const { error } = await (supabase as any).from("sale_addons").insert({
+      sale_id: s.id, addon_id: a.id, name_snapshot: a.name,
+      unit_price_snapshot: n(a.price), quantity: n(addonPick.quantity),
+    });
+    if (error) return setErr(error.message);
+    setAddonPick(null); setErr(null); refresh();
+  }
+
   async function update(patch: { payment_status?: typeof s.payment_status; amount_paid?: number }) {
     const { error } = await supabase.from("sales").update(patch).eq("id", s.id);
     if (error) return setErr(error.message);
     refresh();
   }
 
-  async function del(table: "sale_expenses" | "sale_materials", id: string) {
+  async function del(table: "sale_expenses" | "sale_materials" | "sale_addons", id: string) {
     await supabase.from(table).delete().eq("id", id);
     refresh();
   }
@@ -129,6 +155,8 @@ function SaleDetail() {
             <dt>Contact</dt><dd>{s.customer_contact ?? "—"}</dd>
             <dt>Email</dt><dd>{s.customer_email ?? "—"}</dd>
             <dt>Event</dt><dd>{s.event_name ?? "—"}</dd>
+            {s.event_theme ? <><dt>Theme</dt><dd>{s.event_theme}</dd></> : null}
+            {s.event_venue ? <><dt>Location</dt><dd>{s.event_venue}</dd></> : null}
             <dt>Event date</dt><dd>{s.event_date ?? "—"}{s.event_time ? ` · ${s.event_time}` : ""}</dd>
             <dt>Booking date</dt><dd>{s.booking_date}</dd>
             <dt>Package</dt><dd>{s.packages?.name ?? s.package_name_snapshot ?? "—"}</dd>
@@ -157,10 +185,41 @@ function SaleDetail() {
       <section className="adm-card">
         <h2>Revenue</h2>
         <dl className="adm-dl">
-          <dt>Selling price</dt><dd>{peso(s.selling_price)}</dd>
+          <dt>Package</dt><dd>{peso(s.selling_price)}</dd>
+          {(s.sale_addons?.length ?? 0) > 0 && <><dt>Add-ons</dt><dd>+ {peso(t.addons)}</dd></>}
           <dt>Discount</dt><dd>− {peso(s.discount)}</dd>
           <dt><strong>Net revenue</strong></dt><dd><strong>{peso(t.netRevenue)}</strong></dd>
         </dl>
+      </section>
+
+      <section className="adm-card">
+        <div className="adm-head"><h2>Add-ons</h2>
+          <Button size="sm" onClick={() => setAddonPick({ addon_id: "", quantity: "1" })}>+ Add add-on</Button>
+        </div>
+        {addonPick && (
+          <form className="adm-form" onSubmit={addAddon}>
+            <label>Add-on
+              <select required value={addonPick.addon_id} onChange={(e) => setAddonPick({ ...addonPick, addon_id: e.target.value })}>
+                <option value="">Choose add-on…</option>
+                {(addonCatalog.data?.rows ?? []).filter((a) => a.active).map((a) => (
+                  <option key={a.id} value={a.id}>{a.name} — {peso(a.price)}</option>
+                ))}
+              </select>
+            </label>
+            <label>Quantity<input type="number" step="1" min="1" value={addonPick.quantity} onChange={(e) => setAddonPick({ ...addonPick, quantity: e.target.value })} /></label>
+            <div className="adm-row"><Button type="submit">Add to sale</Button><Button type="button" variant="outline" onClick={() => setAddonPick(null)}>Cancel</Button></div>
+          </form>
+        )}
+        {!(s.sale_addons?.length) ? <p className="adm-empty">No add-ons on this booking.</p> : (
+          <table className="adm-table">
+            <thead><tr><th>Add-on</th><th>Qty</th><th>Price</th><th>Total</th><th /></tr></thead>
+            <tbody>{s.sale_addons!.map((a) => (
+              <tr key={a.id}><td>{a.name_snapshot}</td><td>{n(a.quantity)}</td><td>{peso(a.unit_price_snapshot)}</td><td>{peso(a.total_price)}</td>
+                <td className="adm-actions"><button onClick={() => del("sale_addons", a.id)}>Remove</button></td></tr>
+            ))}</tbody>
+          </table>
+        )}
+        <p><strong>Total add-ons: {peso(t.addons)}</strong></p>
       </section>
 
       <section className="adm-card">

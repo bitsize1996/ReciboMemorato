@@ -35,6 +35,7 @@ export interface InquiryRow {
   email: string | null;
   contact_method: string;
   event_type: string | null;
+  theme: string | null;
   event_date: string | null;
   venue: string | null;
   guests: number | null;
