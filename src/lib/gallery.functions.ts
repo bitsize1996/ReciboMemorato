@@ -19,6 +19,7 @@ interface EventRowLite {
   gif_enabled: boolean;
   singles_enabled: boolean;
   category_id?: string | null;
+  cover_position?: string | null;
 }
 
 type CategoryMap = Map<string, { name: string; sort: number }>;
@@ -51,8 +52,11 @@ async function queryPublishedEvents(supabase: any, slug: string | null) {
       ? base.eq("slug", slug).maybeSingle()
       : base.order("sort_order", { ascending: false }).order("event_date", { ascending: false });
   };
-  const withCategory = await run(`${EVENT_FIELDS}, category_id`);
-  return withCategory.error ? await run(EVENT_FIELDS) : withCategory;
+  // Newer columns only exist once their setup has been run; fall back step by step.
+  let result = await run(`${EVENT_FIELDS}, category_id, cover_position`);
+  if (result.error) result = await run(`${EVENT_FIELDS}, category_id`);
+  if (result.error) result = await run(EVENT_FIELDS);
+  return result;
 }
 
 function toGalleryEvent(row: EventRowLite, categories: CategoryMap = new Map()): GalleryEvent {
@@ -68,6 +72,7 @@ function toGalleryEvent(row: EventRowLite, categories: CategoryMap = new Map()):
     eventDate: row.event_date,
     location: row.location,
     coverUrl: row.cover_url,
+    coverPosition: row.cover_position ?? null,
     isSample: false,
     categoryId: row.category_id ?? null,
     categoryName: (row.category_id && categories.get(row.category_id)?.name) || null,
@@ -150,6 +155,8 @@ export const listEventMedia = createServerFn({ method: "GET" })
       .eq("category", data.category)
       .eq("published", true)
       .neq("source", "sample")
+      .order("drive_created_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
       .order("name", { ascending: true })
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -181,6 +188,12 @@ export const listEventMedia = createServerFn({ method: "GET" })
     };
   });
 
+/**
+ * Called by an open event page every ~30 seconds. If the event has automatic
+ * sync on, it checks Google Drive for new files (at most once every 25 seconds
+ * per event, no matter how many people are watching) and returns how many
+ * published files the event has so pages can refresh when something changes.
+ */
 export const refreshEventGallery = createServerFn({ method: "POST" })
   .inputValidator((input: { slug: string }) => ({ slug: String(input.slug) }))
   .handler(async ({ data }): Promise<{ added: number; publishedCount: number }> => {

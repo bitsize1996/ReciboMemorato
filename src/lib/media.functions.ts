@@ -21,6 +21,7 @@ function categoryOf(input: unknown): MediaCategory {
   return input as MediaCategory;
 }
 
+
 export const adminGetEvent = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { eventId: string }) => ({ eventId: String(input.eventId) }))
@@ -93,6 +94,8 @@ export const adminListMedia = createServerFn({ method: "GET" })
       )
       .eq("event_id", data.eventId)
       .eq("category", data.category)
+      .order("drive_created_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
       .order("name", { ascending: true })
       .limit(500);
     if (error) throw new Error("Could not load media");
@@ -152,7 +155,13 @@ export const setEventLive = createServerFn({ method: "POST" })
         auto_downloads: data.autoDownloads,
       })
       .eq("id", data.eventId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      throw new Error(
+        /auto_/i.test(error.message)
+          ? "Live sync needs a one-time database setup first."
+          : error.message,
+      );
+    }
     return { ok: true };
   });
 
@@ -169,7 +178,6 @@ export const clearRemovedFiles = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
-
 
 export const setMediaFlags = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -272,6 +280,7 @@ async function rememberRemoved(
     .filter((row) => !row.source || row.source === "drive")
     .map(({ event_id, category, drive_file_id }) => ({ event_id, category, drive_file_id }));
   for (let i = 0; i < exclusions.length; i += 200) {
+    // Ignore errors: the table only exists once the live sync setup has been run.
     await db
       .from("media_exclusions")
       .upsert(exclusions.slice(i, i + 200), {

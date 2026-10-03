@@ -49,12 +49,12 @@ const isFolderAccessError = (e: unknown) =>
   e instanceof Error && ["drive_error_400", "drive_error_403", "drive_error_404"].includes(e.message);
 
 /** Reads every row of a small table for one event (the API returns 1000 rows at a time). */
-async function fetchAllForEvent(db: any, table: string, eventId: string) {
-  const rows: { category: string; drive_file_id: string }[] = [];
+async function fetchAllForEvent(db: any, table: string, eventId: string, extra = "") {
+  const rows: { category: string; drive_file_id: string; drive_created_at?: string | null }[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db
       .from(table)
-      .select("category, drive_file_id")
+      .select(`category, drive_file_id${extra}`)
       .eq("event_id", eventId)
       .range(from, from + 999);
     if (error || !data) break; // e.g. the table doesn't exist yet
@@ -85,8 +85,12 @@ export async function syncEventFromDrive(
   const eventId = event.id as string;
 
   const seen = new Set<string>();
-  for (const row of await fetchAllForEvent(db, "media_items", eventId)) {
-    seen.add(`${row.category}:${row.drive_file_id}`);
+  // Files already in the gallery that don't yet know when they were added to Drive.
+  const undated = new Set<string>();
+  for (const row of await fetchAllForEvent(db, "media_items", eventId, ", drive_created_at")) {
+    const key = `${row.category}:${row.drive_file_id}`;
+    seen.add(key);
+    if (!row.drive_created_at) undated.add(key);
   }
   // Files the owner removed from the gallery must not come back.
   for (const row of await fetchAllForEvent(db, "media_exclusions", eventId)) {
@@ -94,6 +98,7 @@ export async function syncEventFromDrive(
   }
 
   const inserts: Record<string, unknown>[] = [];
+  const backfill: Record<string, unknown>[] = [];
   const report: string[] = [];
   const learned: Record<string, string> = {};
 
@@ -153,8 +158,21 @@ export async function syncEventFromDrive(
 
     let added = 0;
     for (const file of files) {
-      if (seen.has(`${category}:${file.id}`)) continue;
-      seen.add(`${category}:${file.id}`);
+      const key = `${category}:${file.id}`;
+      if (seen.has(key)) {
+        if (undated.has(key) && file.createdTime) {
+          undated.delete(key);
+          backfill.push({
+            event_id: eventId,
+            category,
+            drive_file_id: file.id,
+            name: file.name,
+            drive_created_at: file.createdTime,
+          });
+        }
+        continue;
+      }
+      seen.add(key);
       added += 1;
       inserts.push({
         event_id: eventId,
@@ -166,6 +184,7 @@ export async function syncEventFromDrive(
         height: file.imageMediaMetadata?.height ?? file.videoMediaMetadata?.height ?? null,
         is_gif: file.mimeType === "image/gif",
         source: "drive",
+        drive_created_at: file.createdTime ?? null,
         published: options.autoPublish === true,
         download_enabled: options.autoPublish === true && options.autoDownloads === true,
       });
@@ -195,6 +214,13 @@ export async function syncEventFromDrive(
         ignoreDuplicates: true,
       });
     if (error) throw new Error(error.message);
+  }
+
+  // Older files get their Drive date filled in once, so "newest first" is accurate.
+  for (let i = 0; i < backfill.length; i += 500) {
+    await db
+      .from("media_items")
+      .upsert(backfill.slice(i, i + 500), { onConflict: "event_id,category,drive_file_id" });
   }
 
   return { added: inserts.length, foldersFound, report };

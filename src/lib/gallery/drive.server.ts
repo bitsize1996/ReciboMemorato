@@ -21,6 +21,7 @@ export interface DriveFile {
   mimeType: string;
   imageMediaMetadata?: { width?: number; height?: number };
   videoMediaMetadata?: { width?: number; height?: number };
+  createdTime?: string;
 }
 
 /** Streams the original file bytes through the gateway (used by the media proxy). */
@@ -50,7 +51,7 @@ export async function listAllDriveFiles(
       })`,
       supportsAllDrives: "true",
       includeItemsFromAllDrives: "true",
-      fields: "nextPageToken, files(id, name, mimeType, imageMediaMetadata(width, height), videoMediaMetadata(width, height))",
+      fields: "nextPageToken, files(id, name, mimeType, createdTime, imageMediaMetadata(width, height), videoMediaMetadata(width, height))",
       pageSize: "200",
       orderBy: "name",
     });
