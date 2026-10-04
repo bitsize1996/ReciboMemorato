@@ -34,6 +34,7 @@ export interface EventInput {
   cover_url: string | null;
   category_id?: string | null;
   cover_position?: string | null;
+  tags?: string[];
   drive_folder_id: string | null;
   digitals_folder_id: string | null;
   gif_folder_id: string | null;
@@ -128,6 +129,9 @@ export const saveEvent = createServerFn({ method: "POST" })
       extras["cover_position"] = /^\d{1,3}(\.\d+)?% \d{1,3}(\.\d+)?%$/.test(data.cover_position ?? "")
         ? data.cover_position
         : null;
+    }
+    if (data.tags !== undefined) {
+      extras["tags"] = (data.tags ?? []).filter((t) => ["photobooth", "instax", "sintra", "popup"].includes(t));
     }
     let { error } = await run({ ...payload, ...extras });
     if (error) {

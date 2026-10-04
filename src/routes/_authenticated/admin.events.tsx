@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { EVENT_TAGS } from "@/lib/gallery/types";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const EMPTY: EventInput = {
   cover_url: "",
   category_id: null,
   cover_position: null,
+  tags: [],
   drive_folder_id: "",
   digitals_folder_id: "",
   gif_folder_id: "",
@@ -368,6 +370,30 @@ function AdminEventsPage() {
               onChange={(e) => set("location", e.target.value)}
             />
           </label>
+          <fieldset className="admin-wide" style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend style={{ fontFamily: "var(--font-mono)", fontSize: 11, textTransform: "uppercase", marginBottom: 6 }}>
+              Services at this event (shown as tags in the Memory Archive)
+            </legend>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+              {EVENT_TAGS.map((tag) => (
+                <label key={tag.key} className="admin-check">
+                  <input
+                    type="checkbox"
+                    checked={(form.tags ?? []).includes(tag.key)}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        tags: e.target.checked
+                          ? [...(prev.tags ?? []), tag.key]
+                          : (prev.tags ?? []).filter((t) => t !== tag.key),
+                      }))
+                    }
+                  />
+                  {tag.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           {categoriesReady ? (
             <label>
               Category

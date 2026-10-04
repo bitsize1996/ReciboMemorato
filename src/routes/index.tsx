@@ -197,6 +197,7 @@ function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: st
           <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
             {shown("services") ? <a href="#services" className={cls("services")}>Services</a> : null}
             <Link to="/memories">Memory archive</Link>
+            <Link to="/proofs">Proof of orders</Link>
             {shown("story") ? <a href="#story" className={cls("story")}>Our story</a> : null}
             {shown("faqs") ? <a href="#faqs" className={cls("faqs")}>FAQs</a> : null}
             <a href="#contact" className={cls("contact")}>Contact</a>
@@ -229,6 +230,7 @@ function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: st
           <nav id="mobile-nav" className="nav-panel" aria-label="Mobile navigation">
             {shown("services") ? <a href="#services" onClick={close} className={cls("services")}>Services</a> : null}
             <Link to="/memories" onClick={close}>Memory archive</Link>
+            <Link to="/proofs" onClick={close}>Proof of orders</Link>
             {shown("story") ? <a href="#story" onClick={close} className={cls("story")}>Our story</a> : null}
             {shown("faqs") ? <a href="#faqs" onClick={close} className={cls("faqs")}>FAQs</a> : null}
             <a href="#contact" onClick={close} className={cls("contact")}>Contact</a>
@@ -468,7 +470,7 @@ function Index() {
       <footer className="site-footer" id="contact">
         <BrandMark s={s} />
         <p>{h.footerDescription}</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/memories">Memory archive</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/memories">Memory archive</Link><Link to="/proofs">Proof of orders</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
         <div className="flex items-center gap-4">
           {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
             <a key={href} href={href} className="footer-social" target="_blank" rel="noreferrer" aria-label={label}>

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { listPublishedEvents } from "@/lib/gallery.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import type { SiteSettings } from "@/lib/site-settings";
-import { formatEventDate, formatReceiptDate } from "@/lib/gallery/types";
+import { EVENT_TAGS, formatEventDate, formatReceiptDate, tagLabel } from "@/lib/gallery/types";
 import type { GalleryEvent } from "@/lib/gallery/types";
 
 const eventsQuery = queryOptions({
@@ -67,6 +67,26 @@ export function EventCard({ event }: { event: GalleryEvent }) {
           <span>{formatReceiptDate(event.eventDate)}</span>
         </div>
         <h3>{event.name}</h3>
+        {event.tags?.length ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "2px 0 8px" }}>
+            {event.tags.map((tag) => (
+              <span
+                key={tag}
+                style={{
+                  padding: "2px 8px",
+                  border: "1px solid var(--border)",
+                  borderRadius: 999,
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 10,
+                  textTransform: "uppercase",
+                  letterSpacing: ".04em",
+                }}
+              >
+                {tagLabel(tag)}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <p>
           {formatEventDate(event.eventDate)}
           {event.location ? ` · ${event.location}` : ""}
@@ -103,6 +123,7 @@ function ArchivePage() {
   const { data: events } = useSuspenseQuery(eventsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
   const [selected, setSelected] = useState<string>("all");
+  const [service, setService] = useState<string>("all");
 
   // Group events by the category the owner picked; the rest go under "Other events".
   const groups = useMemo(() => {
@@ -123,7 +144,40 @@ function ArchivePage() {
   }, [events]);
 
   const hasCategories = events.some((event) => event.categoryId);
-  const visibleGroups = selected === "all" ? groups : groups.filter((g) => g.key === selected);
+  const usedTags = EVENT_TAGS.filter((tag) => events.some((event) => event.tags?.includes(tag.key)));
+  const byService = (list: GalleryEvent[]) =>
+    service === "all" ? list : list.filter((event) => event.tags?.includes(service));
+  const visibleGroups = (selected === "all" ? groups : groups.filter((g) => g.key === selected))
+    .map((group) => ({ ...group, events: byService(group.events) }))
+    .filter((group) => group.events.length > 0);
+  const flatEvents = byService(events);
+
+  const servicePills =
+    usedTags.length > 0 ? (
+      <div className="category-tabs" role="tablist" aria-label="Services" style={{ marginBottom: 8 }}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={service === "all"}
+          className={service === "all" ? "is-active" : ""}
+          onClick={() => setService("all")}
+        >
+          All services
+        </button>
+        {usedTags.map((tag) => (
+          <button
+            key={tag.key}
+            type="button"
+            role="tab"
+            aria-selected={service === tag.key}
+            className={service === tag.key ? "is-active" : ""}
+            onClick={() => setService(tag.key)}
+          >
+            {tag.label}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   return (
     <main className="archive-page">
@@ -135,13 +189,17 @@ function ArchivePage() {
           <p>Check back soon for photos from our past events.</p>
         </div>
       ) : !hasCategories ? (
-        <div className="event-grid">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
+        <>
+          {servicePills}
+          <div className="event-grid">
+            {flatEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        </>
       ) : (
         <>
+          {servicePills}
           <div className="category-tabs" role="tablist" aria-label="Event categories">
             <button
               type="button"

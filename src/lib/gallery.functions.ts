@@ -20,6 +20,7 @@ interface EventRowLite {
   singles_enabled: boolean;
   category_id?: string | null;
   cover_position?: string | null;
+  tags?: string[] | null;
 }
 
 type CategoryMap = Map<string, { name: string; sort: number }>;
@@ -53,7 +54,8 @@ async function queryPublishedEvents(supabase: any, slug: string | null) {
       : base.order("sort_order", { ascending: false }).order("event_date", { ascending: false });
   };
   // Newer columns only exist once their setup has been run; fall back step by step.
-  let result = await run(`${EVENT_FIELDS}, category_id, cover_position`);
+  let result = await run(`${EVENT_FIELDS}, category_id, cover_position, tags`);
+  if (result.error) result = await run(`${EVENT_FIELDS}, category_id, cover_position`);
   if (result.error) result = await run(`${EVENT_FIELDS}, category_id`);
   if (result.error) result = await run(EVENT_FIELDS);
   return result;
@@ -73,6 +75,7 @@ function toGalleryEvent(row: EventRowLite, categories: CategoryMap = new Map()):
     location: row.location,
     coverUrl: row.cover_url,
     coverPosition: row.cover_position ?? null,
+    tags: Array.isArray(row.tags) ? row.tags : [],
     isSample: false,
     categoryId: row.category_id ?? null,
     categoryName: (row.category_id && categories.get(row.category_id)?.name) || null,

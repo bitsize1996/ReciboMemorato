@@ -30,6 +30,10 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: "Made to order",
+    items: [{ to: "/admin/showcase", label: "Proof of orders" }],
+  },
+  {
     label: "Finance",
     items: [
       { to: "/admin/expenses", label: "Expenses" },

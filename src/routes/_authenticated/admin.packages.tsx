@@ -16,8 +16,9 @@ type Line = { material_id: string; quantity: string };
 type Form = {
   id?: string; name: string; description: string; selling_price: string; estimated_other_costs: string;
   included_services: string; notes: string; active: boolean; lines: Line[];
+  service_type: string; popup_available: boolean;
 };
-const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [] };
+const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false };
 
 type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean };
 const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true };
@@ -115,7 +116,8 @@ function PackagesPage() {
       name: form.name.trim(), description: form.description || null,
       selling_price: n(form.selling_price), estimated_other_costs: n(form.estimated_other_costs),
       included_services: form.included_services || null, notes: form.notes || null, active: form.active,
-    };
+      service_type: form.service_type, popup_available: form.service_type === "made_to_order" && form.popup_available,
+    } as never;
     let id = form.id;
     if (id) {
       const { error } = await supabase.from("packages").update(payload).eq("id", id);
@@ -162,6 +164,15 @@ function PackagesPage() {
           <label className="adm-wide">Description<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
           <label className="adm-wide">Included services<textarea value={form.included_services} onChange={(e) => set("included_services", e.target.value)} placeholder="e.g. 3 hours, 50 prints, all digital photos" /></label>
           <label>Estimated other costs (₱)<input type="number" step="0.01" min="0" value={form.estimated_other_costs} onChange={(e) => set("estimated_other_costs", e.target.value)} /></label>
+          <label>Type of service
+            <select value={form.service_type} onChange={(e) => set("service_type", e.target.value)}>
+              <option value="event">Event service (photobooth, booked for an event)</option>
+              <option value="made_to_order">Made to order (Sintra board, Instax prints…)</option>
+            </select>
+          </label>
+          {form.service_type === "made_to_order" && (
+            <label className="adm-check"><input type="checkbox" checked={form.popup_available} onChange={(e) => set("popup_available", e.target.checked)} /> Also sold at pop-up events</label>
+          )}
           <label className="adm-check"><input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} /> Active</label>
           <div className="adm-wide">
             <h3>Materials used</h3>
@@ -205,6 +216,10 @@ function PackagesPage() {
             return (
               <article className="adm-card" key={p.id}>
                 <h2>{p.name} {!p.active && <small>(inactive)</small>}</h2>
+                <p className="adm-hint">
+                  {(p as { service_type?: string }).service_type === "made_to_order" ? "Made to order" : "Event service"}
+                  {(p as { popup_available?: boolean }).popup_available ? " · also at pop-ups" : ""}
+                </p>
                 {p.description && <p>{p.description}</p>}
                 {p.included_services && <p className="adm-hint">{p.included_services}</p>}
                 <dl className="adm-dl">
@@ -240,6 +255,8 @@ function PackagesPage() {
                     id: p.id, name: p.name, description: p.description ?? "", selling_price: String(p.selling_price),
                     estimated_other_costs: String(p.estimated_other_costs), included_services: p.included_services ?? "",
                     notes: p.notes ?? "", active: p.active,
+                    service_type: (p as { service_type?: string }).service_type ?? "event",
+                    popup_available: Boolean((p as { popup_available?: boolean }).popup_available),
                     lines: p.package_materials.map((pm) => ({ material_id: pm.material_id, quantity: String(pm.quantity) })),
                   })}>Edit</button>
                   <button onClick={() => remove(p.id)}>Delete</button>

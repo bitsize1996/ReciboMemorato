@@ -33,13 +33,20 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const db = supabaseAdmin as any;
-      const [cats, pkgs, adds] = await Promise.all([
-        db.from("event_categories").select("name, sort_order").order("sort_order", { ascending: true }),
+      // Only event services belong on the event booking form (made-to-order items get their own order form).
+      const packageQuery = () =>
         db
           .from("packages")
           .select("id, name, description, included_services, selling_price")
           .eq("active", true)
-          .order("selling_price", { ascending: true }),
+          .order("selling_price", { ascending: true });
+      const loadPackages = async () => {
+        const filtered = await packageQuery().eq("service_type", "event");
+        return filtered.error ? await packageQuery() : filtered;
+      };
+      const [cats, pkgs, adds] = await Promise.all([
+        db.from("event_categories").select("name, sort_order").order("sort_order", { ascending: true }),
+        loadPackages(),
         db
           .from("addons")
           .select("id, name, description, price")
