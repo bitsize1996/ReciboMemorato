@@ -1,6 +1,7 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { peso } from "@/lib/finance";
@@ -45,8 +46,102 @@ function bullets(text: string | null): string[] {
     .filter(Boolean);
 }
 
+/** Full-screen viewer for a package's sample photos: arrows, keyboard and a thumbnail strip. */
+function PhotoViewer({
+  pkg,
+  start,
+  onClose,
+}: {
+  pkg: PublicPackage;
+  start: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(start);
+  const total = pkg.photos.length;
+  const go = (step: number) => setIndex((i) => (i + step + total) % total);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowRight") setIndex((i) => (i + 1) % total);
+      if (event.key === "ArrowLeft") setIndex((i) => (i - 1 + total) % total);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, total]);
+
+  const photo = pkg.photos[index]!;
+  const control: React.CSSProperties = {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    display: "grid",
+    placeItems: "center",
+    width: 44,
+    height: 44,
+    border: "1px solid rgba(255,255,255,.7)",
+    borderRadius: "50%",
+    background: "rgba(0,0,0,.45)",
+    color: "#fff",
+    cursor: "pointer",
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${pkg.name} sample photos`}
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 60, display: "grid", placeItems: "center", padding: 12, background: "rgba(0,0,0,.88)" }}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: "min(94vw, 920px)", color: "#fff", textAlign: "center" }}>
+        <button type="button" onClick={onClose} aria-label="Close" style={{ ...control, top: 6, right: 6, left: "auto", transform: "none", zIndex: 2 }}>
+          <X className="size-5" aria-hidden="true" />
+        </button>
+        <img
+          src={photo.url}
+          alt={photo.caption ?? `${pkg.name} sample ${index + 1}`}
+          style={{ display: "block", margin: "0 auto", maxWidth: "100%", maxHeight: "72svh", objectFit: "contain" }}
+        />
+        {total > 1 ? (
+          <>
+            <button type="button" onClick={() => go(-1)} aria-label="Previous photo" style={{ ...control, left: 6 }}>
+              <ChevronLeft className="size-5" aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => go(1)} aria-label="Next photo" style={{ ...control, right: 6 }}>
+              <ChevronRight className="size-5" aria-hidden="true" />
+            </button>
+          </>
+        ) : null}
+        <p style={{ margin: "10px 0 2px", fontSize: 14 }}>
+          <strong>{pkg.name}</strong>
+          {photo.caption ? ` — ${photo.caption}` : ""}
+        </p>
+        <small style={{ opacity: 0.7 }}>{index + 1} / {total}</small>
+        {total > 1 ? (
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 10, flexWrap: "wrap" }}>
+            {pkg.photos.map((item, i) => (
+              <button
+                key={item.url}
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Show photo ${i + 1}`}
+                style={{ padding: 0, border: i === index ? "2px solid #fff" : "2px solid transparent", opacity: i === index ? 1 : 0.6, background: "none", cursor: "pointer" }}
+              >
+                <img src={item.url} alt="" style={{ display: "block", width: 54, height: 54, objectFit: "cover" }} />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: string }) {
   const items = bullets(pkg.includedServices);
+  const [viewing, setViewing] = useState<number | null>(null);
+  const cover = pkg.photos[0];
   return (
     <article
       style={{
@@ -58,6 +153,53 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
         background: "var(--card)",
       }}
     >
+      {cover ? (
+        <button
+          type="button"
+          onClick={() => setViewing(0)}
+          aria-label={`View ${pkg.photos.length} sample photo${pkg.photos.length === 1 ? "" : "s"} of ${pkg.name}`}
+          style={{ position: "relative", display: "block", width: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
+        >
+          <img
+            src={cover.url}
+            alt={cover.caption ?? `${pkg.name} sample`}
+            loading="lazy"
+            decoding="async"
+            style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              right: 8,
+              bottom: 8,
+              padding: "3px 9px",
+              borderRadius: 999,
+              background: "rgba(0,0,0,.65)",
+              color: "#fff",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+            }}
+          >
+            {pkg.photos.length > 1 ? `${pkg.photos.length} photos` : "View photo"}
+          </span>
+        </button>
+      ) : null}
+      {pkg.photos.length > 1 ? (
+        <div style={{ display: "flex", gap: 6 }}>
+          {pkg.photos.slice(1, 5).map((photo, i) => (
+            <button
+              key={photo.url}
+              type="button"
+              onClick={() => setViewing(i + 1)}
+              aria-label={`View sample photo ${i + 2}`}
+              style={{ flex: "1 1 0", minWidth: 0, padding: 0, border: "1px solid var(--border)", background: "none", cursor: "zoom-in" }}
+            >
+              <img src={photo.url} alt="" loading="lazy" style={{ display: "block", width: "100%", aspectRatio: "1 / 1", objectFit: "cover" }} />
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {viewing !== null ? <PhotoViewer pkg={pkg} start={viewing} onClose={() => setViewing(null)} /> : null}
       <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
         <h3 style={{ margin: 0, fontSize: 18 }}>{pkg.name}</h3>
         <strong style={{ color: "var(--primary)", whiteSpace: "nowrap" }}>{peso(pkg.price)}</strong>

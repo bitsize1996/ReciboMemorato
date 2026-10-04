@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAddons, useMaterials, usePackages } from "@/lib/admin-data";
 import { margin, n, pct, peso } from "@/lib/finance";
+import { resizeToJpeg } from "@/lib/images";
 import { HEADING_ORDER, materialHeading } from "@/lib/materials";
 import { PRODUCT_LINES, lineLabel } from "@/lib/product-lines";
 import { analyzePrice, opCostAt, opsFromSaved, suggestPrice, type MarginMode, type OpCost } from "@/lib/pricing";
@@ -24,6 +25,120 @@ type Form = {
 };
 const OP_SUGGESTIONS = ["Labor", "Transport", "Electricity", "Equipment wear", "Packaging", "Payment fee", "Marketing", "Rent share"];
 const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0", product_line: "" };
+
+interface PhotoRow { id: string; image_url: string; caption: string | null; sort_order: number }
+
+/** Sample photos shown on the public Packages page (the first one is the cover). */
+function PackagePhotos({ packageId }: { packageId: string }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const photos = useQuery({
+    queryKey: ["biz", "package-photos", packageId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("package_photos").select("*").eq("package_id", packageId)
+        .order("sort_order", { ascending: true }).order("created_at", { ascending: true });
+      if (error) return { ready: false, rows: [] as PhotoRow[] };
+      return { ready: true, rows: (data ?? []) as PhotoRow[] };
+    },
+  });
+  const rows = photos.data?.rows ?? [];
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["biz", "package-photos", packageId] });
+    qc.invalidateQueries({ queryKey: ["public-packages"] });
+  };
+
+  async function upload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setBusy(true); setMessage(null);
+    let next = rows.reduce((max, r) => Math.max(max, r.sort_order), -1) + 1;
+    let added = 0;
+    const failed: string[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const blob = await resizeToJpeg(file);
+        const path = `packages/${packageId}/${crypto.randomUUID()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from("order-proofs").upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("order-proofs").getPublicUrl(path);
+        const { error } = await (supabase as any).from("package_photos")
+          .insert({ package_id: packageId, image_url: data.publicUrl, sort_order: next });
+        if (error) throw error;
+        next += 1; added += 1;
+      } catch {
+        failed.push(file.name);
+      }
+    }
+    setBusy(false);
+    setMessage(failed.length ? `${added} added. Could not add: ${failed.join(", ")} (use JPG or PNG).` : `${added} photo${added === 1 ? "" : "s"} added.`);
+    refresh();
+  }
+
+  async function patch(id: string, values: Partial<PhotoRow>) {
+    const { error } = await (supabase as any).from("package_photos").update(values).eq("id", id);
+    if (error) return setMessage(error.message);
+    refresh();
+  }
+
+  async function remove(row: PhotoRow) {
+    if (!window.confirm("Remove this photo from the package?")) return;
+    const { error } = await (supabase as any).from("package_photos").delete().eq("id", row.id);
+    if (error) return setMessage(error.message);
+    const marker = "/order-proofs/";
+    const at = row.image_url.indexOf(marker);
+    if (at >= 0) await supabase.storage.from("order-proofs").remove([row.image_url.slice(at + marker.length)]);
+    refresh();
+  }
+
+  async function move(index: number, direction: -1 | 1) {
+    const other = rows[index + direction];
+    if (!other) return;
+    const order = rows.map((r, i) => ({ id: r.id, sort_order: i }));
+    const a = order[index]!;
+    const b = order[index + direction]!;
+    [a.sort_order, b.sort_order] = [b.sort_order, a.sort_order];
+    await Promise.all(order.map((o) => (supabase as any).from("package_photos").update({ sort_order: o.sort_order }).eq("id", o.id)));
+    refresh();
+  }
+
+  if (photos.data && !photos.data.ready) {
+    return <p className="adm-hint">Sample photos need a one-time database setup. Once it has been run, reload this page.</p>;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <label>
+        Add sample photos (you can choose many at once)
+        <input type="file" accept="image/*" multiple disabled={busy}
+          onChange={(e) => { void upload(e.target.files); e.target.value = ""; }} />
+      </label>
+      {busy ? <p className="adm-hint">Uploading… please keep this page open.</p> : null}
+      {message ? <p className="adm-hint">{message}</p> : null}
+      {rows.length === 0 ? <p className="adm-hint">No sample photos yet.</p> : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {rows.map((row, i) => (
+            <div key={row.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <img src={row.image_url} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 4 }} />
+              <input
+                style={{ flex: "1 1 200px" }}
+                defaultValue={row.caption ?? ""}
+                placeholder={i === 0 ? "Caption (this is the cover photo)" : "Caption (optional)"}
+                aria-label="Caption"
+                onBlur={(e) => e.target.value !== (row.caption ?? "") && patch(row.id, { caption: e.target.value.trim() || null })}
+              />
+              <button type="button" onClick={() => move(i, -1)} aria-label="Move earlier">▲</button>
+              <button type="button" onClick={() => move(i, 1)} aria-label="Move later">▼</button>
+              <button type="button" onClick={() => remove(row)}>Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="adm-hint">The first photo is the cover on the Packages page. Only add photos your customers are happy to have shown.</p>
+    </div>
+  );
+}
 
 type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean };
 const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true };
@@ -364,6 +479,12 @@ function PackagesPage() {
                 <dt>Break-even price</dt><dd>{calc?.atSelling.breakEven != null ? peso(calc.atSelling.breakEven) : "—"}</dd>
               </dl>
             </div>
+          </div>
+          <div className="adm-wide" style={{ display: "grid", gap: 8, padding: 14, border: "1px solid var(--adm-line)", borderRadius: 8 }}>
+            <h3 style={{ margin: 0 }}>Sample photos</h3>
+            {form.id ? <PackagePhotos packageId={form.id} /> : (
+              <p className="adm-hint">Save the package first, then click Edit on it to add sample photos.</p>
+            )}
           </div>
           <label className="adm-wide">Notes<textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} /></label>
           <div className="adm-row"><Button type="submit">Save</Button><Button type="button" variant="outline" onClick={() => setForm(null)}>Cancel</Button></div>

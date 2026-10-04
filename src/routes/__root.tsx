@@ -3,6 +3,7 @@ import {
   Outlet,
   Link,
   createRootRouteWithContext,
+  useLocation,
   useRouter,
   HeadContent,
   Scripts,
@@ -10,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { SiteHeader } from "../components/site/SiteHeader";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { siteSettingsQuery } from "../lib/site.functions";
 import { DEFAULT_SETTINGS, type SiteSettings } from "../lib/site-settings";
@@ -154,14 +156,26 @@ function themeOverride(s: SiteSettings): string | null {
   ].join("");
 }
 
+// Pages that keep their own layout and don't get the public top menu.
+const NO_MENU_PREFIXES = ["/admin", "/auth", "/reset-password"];
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { pathname } = useLocation();
+  const publicPage = !NO_MENU_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   return (
     <QueryClientProvider client={queryClient}>
       <SiteTheme />
+      {publicPage ? <SiteHeader /> : null}
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      {publicPage && pathname !== "/" ? (
+        <div className="has-site-chrome">
+          <Outlet />
+        </div>
+      ) : (
+        <Outlet />
+      )}
     </QueryClientProvider>
   );
 }

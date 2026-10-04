@@ -34,7 +34,7 @@ export function useBusinessInfo() {
  * Opens a ready-to-send Gmail message. `from` picks which signed-in Google
  * account to use, so it always goes out from your Recibo Memorato address.
  */
-export function gmailComposeUrl(opts: { from?: string | undefined; to?: string | undefined; subject: string; body: string }) {
+export function gmailComposeUrl(opts: { from?: string; to?: string; subject: string; body: string }) {
   const params = new URLSearchParams({ view: "cm", fs: "1", su: opts.subject, body: opts.body });
   if (opts.to) params.set("to", opts.to);
   if (opts.from) params.set("authuser", opts.from);
@@ -144,3 +144,24 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * A Messenger chat link built only from an explicit Facebook link, a profile id,
+ * or a @username. A plain name is never turned into a link, because many people
+ * share a name and the message could reach the wrong person.
+ */
+export function messengerProfileUrl(contact: string | null | undefined): string | null {
+  const raw = (contact ?? "").trim();
+  if (!raw) return null;
+  const byId = raw.match(/profile\.php\?id=(\d+)/i);
+  if (byId) return `https://m.me/${byId[1]}`;
+  const byUrl = raw.match(/(?:facebook\.com|fb\.com|m\.me)\/([A-Za-z0-9.\-_]+)/i);
+  const reserved = ["profile.php", "people", "groups", "pages", "share", "sharer", "watch", "events"];
+  if (byUrl && !reserved.includes(byUrl[1]!.toLowerCase())) return `https://m.me/${byUrl[1]}`;
+  const byHandle = raw.match(/^@([A-Za-z0-9.]{5,})$/);
+  if (byHandle) return `https://m.me/${byHandle[1]}`;
+  return null;
+}
+
+/** Meta Business Suite inbox, where messages sent to your Facebook Page arrive. */
+export const PAGE_INBOX_URL = "https://business.facebook.com/latest/inbox";

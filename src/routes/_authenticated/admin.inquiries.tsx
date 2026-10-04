@@ -9,7 +9,7 @@ import { useAddons, usePackages, useSales } from "@/lib/admin-data";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
 import { n, peso, saleCode } from "@/lib/finance";
 import { siteSettingsQuery } from "@/lib/site.functions";
-import { brandName, copyText, gmailComposeUrl, inquiryReplyMessage, useBusinessInfo } from "@/lib/messages";
+import { PAGE_INBOX_URL, brandName, copyText, gmailComposeUrl, inquiryReplyMessage, messengerProfileUrl, useBusinessInfo } from "@/lib/messages";
 import {
   INQUIRY_SOURCES,
   INQUIRY_STATUSES,
@@ -355,6 +355,8 @@ function Detail({ row }: { row: InquiryRow }) {
   });
   const replyUrl = gmailComposeUrl({ from: biz.data?.email, to: row.email ?? "", subject: reply.subject, body: reply.body });
 
+  const messengerUrl = messengerProfileUrl(row.contact);
+
   const phone = row.contact && /^[+\d][\d\s()-]{6,}$/.test(row.contact) ? row.contact.replace(/[^\d+]/g, "") : null;
 
   return (
@@ -377,6 +379,25 @@ function Detail({ row }: { row: InquiryRow }) {
             </>
           ) : null}
         </div>
+        {row.contact_method === "messenger" || messengerUrl ? (
+          <div style={{ display: "grid", gap: 4 }}>
+            <div>
+              {messengerUrl ? (
+                <Button asChild size="sm" variant="outline">
+                  <a href={messengerUrl} target="_blank" rel="noreferrer">Open in Messenger</a>
+                </Button>
+              ) : null}{" "}
+              <Button asChild size="sm" variant="outline">
+                <a href={PAGE_INBOX_URL} target="_blank" rel="noreferrer">Open Page inbox</a>
+              </Button>
+            </div>
+            <small className="adm-hint">
+              {messengerUrl
+                ? "Opens a chat with the profile they gave. Use Copy reply below to paste your message."
+                : `No profile link was given. Search "${row.contact ?? ""}" in your Page inbox, or ask them to message your Page with reference ${inquiryCode(row.inquiry_number)}.`}
+            </small>
+          </div>
+        ) : null}
         <div>
           <strong>Prefers:</strong>{" "}
           {row.contact_method === "call_text" ? "Call / text" : row.contact_method === "email" ? "Email" : "Messenger"}

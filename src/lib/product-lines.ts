@@ -22,4 +22,6 @@ export interface PublicPackage {
   serviceType: "event" | "made_to_order";
   productLine: string | null;
   popupAvailable: boolean;
+  /** Sample photos, first one is the cover. */
+  photos: { url: string; caption: string | null }[];
 }
