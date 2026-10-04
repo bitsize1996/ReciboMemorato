@@ -187,7 +187,8 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
         <div
           style={{
             position: "relative",
-            aspectRatio: "4 / 3",
+            // Portrait frame: boards, strips and prints are tall, so the whole photo fits without being cut off.
+            aspectRatio: "4 / 5",
             background: "color-mix(in oklab, var(--foreground) 6%, var(--card))",
             touchAction: "pan-y",
           }}
@@ -225,7 +226,7 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
                 src={photo.url}
                 alt={photo.caption ?? `${pkg.name} sample ${current + 1}`}
                 decoding="async"
-                style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%" }}
+                style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
               />
             </button>
           ) : (
