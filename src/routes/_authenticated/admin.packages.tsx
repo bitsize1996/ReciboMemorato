@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAddons, useMaterials, usePackages } from "@/lib/admin-data";
 import { margin, n, pct, peso } from "@/lib/finance";
 import { HEADING_ORDER, materialHeading } from "@/lib/materials";
+import { PRODUCT_LINES, lineLabel } from "@/lib/product-lines";
 import { analyzePrice, opCostAt, opsFromSaved, suggestPrice, type MarginMode, type OpCost } from "@/lib/pricing";
 
 export const Route = createFileRoute("/_authenticated/admin/packages")({
@@ -19,10 +20,10 @@ type Form = {
   id?: string; name: string; description: string; selling_price: string; estimated_other_costs: string;
   included_services: string; notes: string; active: boolean; lines: Line[];
   service_type: string; popup_available: boolean;
-  ops: OpCost[]; margin_mode: MarginMode; target_margin: string; round_to: string;
+  ops: OpCost[]; margin_mode: MarginMode; target_margin: string; round_to: string; product_line: string;
 };
 const OP_SUGGESTIONS = ["Labor", "Transport", "Electricity", "Equipment wear", "Packaging", "Payment fee", "Marketing", "Rent share"];
-const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0" };
+const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0", product_line: "" };
 
 type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean };
 const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true };
@@ -172,6 +173,7 @@ function PackagesPage() {
         .map((op) => ({ label: op.label.trim(), amount: n(op.amount), percent: op.percent })),
       target_margin: form.target_margin === "" ? null : n(form.target_margin),
       margin_mode: form.margin_mode,
+      product_line: form.product_line || null,
     };
     const writePackage = (body: object) =>
       form.id
@@ -180,7 +182,7 @@ function PackagesPage() {
     let id = form.id;
     let { data: saved, error: saveError } = await writePackage({ ...payload, ...calculatorFields });
     // Older databases may not have the calculator columns yet; still save the package itself.
-    if (saveError && /operation_costs|target_margin|margin_mode/i.test(saveError.message)) {
+    if (saveError && /operation_costs|target_margin|margin_mode|product_line/i.test(saveError.message)) {
       ({ data: saved, error: saveError } = await writePackage(payload));
     }
     if (saveError) return setErr(saveError.message);
@@ -221,6 +223,14 @@ function PackagesPage() {
           <label>Selling price (₱)<input type="number" step="0.01" min="0" value={form.selling_price} onChange={(e) => set("selling_price", e.target.value)} /></label>
           <label className="adm-wide">Description<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
           <label className="adm-wide">Included services<textarea value={form.included_services} onChange={(e) => set("included_services", e.target.value)} placeholder="e.g. 3 hours, 50 prints, all digital photos" /></label>
+          <label>Which service is it for?
+            <select value={form.product_line} onChange={(e) => set("product_line", e.target.value)}>
+              <option value="">Not set (shows under "Other packages")</option>
+              {PRODUCT_LINES.map((line) => (
+                <option key={line.key} value={line.key}>{line.label}</option>
+              ))}
+            </select>
+          </label>
           <label>Type of service
             <select value={form.service_type} onChange={(e) => set("service_type", e.target.value)}>
               <option value="event">Event service (photobooth, booked for an event)</option>
@@ -377,6 +387,7 @@ function PackagesPage() {
               <article className="adm-card" key={p.id}>
                 <h2>{p.name} {!p.active && <small>(inactive)</small>}</h2>
                 <p className="adm-hint">
+                  {lineLabel((p as { product_line?: string | null }).product_line)} ·{" "}
                   {(p as { service_type?: string }).service_type === "made_to_order" ? "Made to order" : "Event service"}
                   {(p as { popup_available?: boolean }).popup_available ? " · also at pop-ups" : ""}
                 </p>
@@ -419,6 +430,7 @@ function PackagesPage() {
                     margin_mode: ((p as { margin_mode?: string }).margin_mode === "markup" ? "markup" : "margin") as MarginMode,
                     target_margin: String((p as { target_margin?: number | null }).target_margin ?? "40"),
                     round_to: "0",
+                    product_line: (p as { product_line?: string | null }).product_line ?? "",
                     service_type: (p as { service_type?: string }).service_type ?? "event",
                     popup_available: Boolean((p as { popup_available?: boolean }).popup_available),
                     lines: p.package_materials.map((pm) => ({ material_id: pm.material_id, quantity: String(pm.quantity) })),
