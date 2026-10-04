@@ -51,9 +51,9 @@ export async function listAllDriveFiles(
       })`,
       supportsAllDrives: "true",
       includeItemsFromAllDrives: "true",
-      fields: "nextPageToken, files(id, name, mimeType, createdTime, imageMediaMetadata(width, height), videoMediaMetadata(width, height))",
-      pageSize: "200",
-      orderBy: "name",
+      // Light fields and no sorting keep big folders fast; sizes are fetched only for new files.
+      fields: "nextPageToken, files(id, name, mimeType, createdTime)",
+      pageSize: "1000",
     });
     if (pageToken) params.set("pageToken", pageToken);
 
@@ -134,4 +134,43 @@ export async function listOtherDriveFiles(
   if (!response.ok) return [];
   const payload = (await response.json()) as { files?: { name: string; mimeType: string }[] };
   return payload.files ?? [];
+}
+
+/**
+ * Confirms a folder can be opened (and isn't in the trash). Used to trust an
+ * empty listing: if the folder answers normally, empty really means empty.
+ */
+export async function driveFolderIsReachable(folderId: string): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({ fields: "id, trashed", supportsAllDrives: "true" });
+    const response = await fetch(`${GATEWAY}/files/${encodeURIComponent(folderId)}?${params.toString()}`, {
+      headers: gatewayHeaders(),
+    });
+    if (!response.ok) return false;
+    const info = (await response.json()) as { trashed?: boolean };
+    return info.trashed !== true;
+  } catch {
+    return false;
+  }
+}
+
+/** Picture/video size for one file (used for new files only). */
+export async function fetchDriveFileSize(
+  fileId: string,
+): Promise<{ width: number | null; height: number | null }> {
+  try {
+    const params = new URLSearchParams({
+      fields: "imageMediaMetadata(width, height), videoMediaMetadata(width, height)",
+      supportsAllDrives: "true",
+    });
+    const response = await fetch(`${GATEWAY}/files/${encodeURIComponent(fileId)}?${params.toString()}`, {
+      headers: gatewayHeaders(),
+    });
+    if (!response.ok) return { width: null, height: null };
+    const info = (await response.json()) as Pick<DriveFile, "imageMediaMetadata" | "videoMediaMetadata">;
+    const meta = info.imageMediaMetadata ?? info.videoMediaMetadata;
+    return { width: meta?.width ?? null, height: meta?.height ?? null };
+  } catch {
+    return { width: null, height: null };
+  }
 }

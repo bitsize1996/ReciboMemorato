@@ -1,4 +1,6 @@
 import {
+  driveFolderIsReachable,
+  fetchDriveFileSize,
   listAllDriveFiles,
   listDriveSubfolders,
   listOtherDriveFiles,
@@ -105,8 +107,11 @@ export async function syncEventFromDrive(
     }
   }
   // Files the owner removed from the gallery must not come back.
+  const excluded = new Map<string, Set<string>>();
   for (const row of await fetchAllForEvent(db, "media_exclusions", eventId)) {
     seen.add(`${row.category}:${row.drive_file_id}`);
+    if (!excluded.has(row.category)) excluded.set(row.category, new Set());
+    excluded.get(row.category)!.add(row.drive_file_id);
   }
 
   const inserts: Record<string, unknown>[] = [];
@@ -117,29 +122,29 @@ export async function syncEventFromDrive(
   const learned: Record<string, string> = {};
 
   const mainFolder = (event.drive_folder_id as string | null) || null;
-  let subfolderCache: { id: string; name: string }[] | null = null;
+  // The sub-folder lookup is shared by the three scans below, so it runs once.
+  let subfolderPromise: Promise<{ id: string; name: string }[]> | null = null;
   const findFolder = async (category: MediaCategory): Promise<string | null> => {
     if (!mainFolder) return null;
-    if (!subfolderCache) {
-      try {
-        subfolderCache = await listDriveSubfolders(mainFolder);
-      } catch (e) {
-        throw new Error(driveErrorMessage(e));
-      }
+    if (!subfolderPromise) subfolderPromise = listDriveSubfolders(mainFolder);
+    let subfolders;
+    try {
+      subfolders = await subfolderPromise;
+    } catch (e) {
+      throw new Error(driveErrorMessage(e));
     }
-    const match = subfolderCache.find((folder) => {
+    const match = subfolders.find((folder) => {
       const name = normalizeName(folder.name);
       return FOLDER_KEYWORDS[category].some((word) => name.includes(word));
     });
     return match?.id ?? null;
   };
 
-  let foldersFound = 0;
-
-  for (const category of CATEGORIES) {
-    const label = LABEL[category];
+  // Look at the three Drive folders at the same time instead of one after another.
+  const scan = async (category: MediaCategory) => {
     let folderId = (event[FOLDER_COLUMN[category]] as string | null) || null;
     let files: Awaited<ReturnType<typeof listAllDriveFiles>> | null = null;
+    let learnedId: string | null = null;
     // The Animated tab also accepts videos (MP4, MOV…).
     const listOptions = { includeVideos: category === "gif" };
 
@@ -160,9 +165,24 @@ export async function syncEventFromDrive(
         } catch (e) {
           throw new Error(driveErrorMessage(e));
         }
-        learned[FOLDER_COLUMN[category]] = folderId;
+        learnedId = folderId;
       }
     }
+
+    // An empty answer is only trusted when the folder itself answers normally.
+    let trustedEmpty = false;
+    if (folderId && files && files.length === 0) trustedEmpty = await driveFolderIsReachable(folderId);
+    return { category, folderId, files, learnedId, trustedEmpty };
+  };
+
+  const scans = await Promise.all(CATEGORIES.map((category) => scan(category)));
+
+  let foldersFound = 0;
+  const tidy: { category: string; ids: string[] }[] = [];
+
+  for (const { category, folderId, files, learnedId, trustedEmpty } of scans) {
+    const label = LABEL[category];
+    if (learnedId) learned[FOLDER_COLUMN[category]] = learnedId;
 
     if (!folderId || !files) {
       report.push(`${label}: folder not found`);
@@ -171,15 +191,20 @@ export async function syncEventFromDrive(
     foldersFound += 1;
 
     // Files that were deleted (or moved out) in Drive no longer belong in the gallery.
-    // An empty listing is never trusted for this, so a Drive hiccup can't wipe a gallery.
+    // An empty folder counts only if it answered normally, and a huge gallery is never
+    // emptied in one go, so a Drive hiccup can't wipe it.
+    const listed = new Set(files.map((file) => file.id));
+    const present = inGallery.get(category) ?? new Set<string>();
     let gone: string[] = [];
-    if (files.length > 0) {
-      const listed = new Set(files.map((file) => file.id));
-      gone = [...(inGallery.get(category) ?? [])].filter((id) => !listed.has(id));
+    if (files.length > 0 || (trustedEmpty && present.size <= 150)) {
+      gone = [...present].filter((id) => !listed.has(id));
       if (gone.length > 0) {
         toRemove.push({ category, ids: gone });
         removed += gone.length;
       }
+      // Files that vanished from Drive no longer need to be remembered as "removed".
+      const stale = [...(excluded.get(category) ?? [])].filter((id) => !listed.has(id));
+      if (stale.length > 0) tidy.push({ category, ids: stale });
     }
 
     let added = 0;
@@ -206,8 +231,8 @@ export async function syncEventFromDrive(
         drive_file_id: file.id,
         name: file.name,
         mime_type: file.mimeType,
-        width: file.imageMediaMetadata?.width ?? file.videoMediaMetadata?.width ?? null,
-        height: file.imageMediaMetadata?.height ?? file.videoMediaMetadata?.height ?? null,
+        width: null,
+        height: null,
         is_gif: file.mimeType === "image/gif",
         source: "drive",
         drive_created_at: file.createdTime ?? null,
@@ -217,17 +242,39 @@ export async function syncEventFromDrive(
     }
 
     if (files.length === 0) {
-      const others = await listOtherDriveFiles(folderId);
-      report.push(
-        others.length > 0
-          ? `${label}: no photos or videos, but ${others.length} other file${others.length === 1 ? "" : "s"} found (for example "${others[0]!.name}"). Only images (JPG, PNG, GIF, WebP) and, in Animated, videos can be shown.`
-          : `${label}: folder found but it is empty`,
-      );
+      if (trustedEmpty) {
+        report.push(
+          gone.length > 0
+            ? `${label}: folder is now empty (${gone.length} removed)`
+            : present.size > 150
+              ? `${label}: Drive shows an empty folder but ${present.size} photos are in the gallery, so nothing was changed. If you really emptied it, use "Remove all" on that tab.`
+              : `${label}: folder found but it is empty`,
+        );
+      } else {
+        const others = await listOtherDriveFiles(folderId);
+        report.push(
+          others.length > 0
+            ? `${label}: no photos or videos, but ${others.length} other file${others.length === 1 ? "" : "s"} found (for example "${others[0]!.name}"). Only images (JPG, PNG, GIF, WebP) and, in Animated, videos can be shown.`
+            : `${label}: folder could not be checked, so nothing was changed`,
+        );
+      }
     } else {
       report.push(
         `${label}: ${files.length} file${files.length === 1 ? "" : "s"} found (${added} new${gone.length > 0 ? `, ${gone.length} removed` : ""})`,
       );
     }
+  }
+
+  // Picture sizes for the new files only (a few at a time), so the grid doesn't jump around.
+  const sizeTargets = inserts.slice(0, 60);
+  for (let i = 0; i < sizeTargets.length; i += 10) {
+    await Promise.all(
+      sizeTargets.slice(i, i + 10).map(async (row) => {
+        const size = await fetchDriveFileSize(row["drive_file_id"] as string);
+        row["width"] = size.width;
+        row["height"] = size.height;
+      }),
+    );
   }
 
   if (Object.keys(learned).length > 0) {
@@ -242,6 +289,17 @@ export async function syncEventFromDrive(
         .eq("event_id", eventId)
         .eq("category", category)
         .eq("source", "drive")
+        .in("drive_file_id", ids.slice(i, i + 100));
+    }
+  }
+
+  for (const { category, ids } of tidy) {
+    for (let i = 0; i < ids.length; i += 100) {
+      await db
+        .from("media_exclusions")
+        .delete()
+        .eq("event_id", eventId)
+        .eq("category", category)
         .in("drive_file_id", ids.slice(i, i + 100));
     }
   }

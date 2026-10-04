@@ -47,7 +47,7 @@ const FOLDER_COLUMN: Record<MediaCategory, string> = {
 function ManageGalleryPage() {
   const { eventId } = Route.useParams();
   const queryClient = useQueryClient();
-  const [category, setCategory] = useState<MediaCategory>("gif");
+  const [category, setCategory] = useState<MediaCategory>("digitals");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -75,12 +75,29 @@ function ManageGalleryPage() {
           ? "We couldn't find folders named Animated, Prints or Single Photos in that Google Drive folder. Check the folder names, or use \"Edit folder links\" to paste each folder's link."
           : result.added === 0
             ? "No new files found."
-            : `${result.added} new file${result.added === 1 ? "" : "s"} added — all still hidden until you publish them.`;
-      const finalHeadline =
-        result.added > 0 && (overview.data as any)?.event?.auto_publish === true
-          ? `${result.added} new file${result.added === 1 ? "" : "s"} added and published.`
-          : headline;
-      setNotice([finalHeadline, ...(result.report ?? [])].join("\n"));
+            : (overview.data as any)?.event?.auto_publish === true
+              ? `${result.added} new file${result.added === 1 ? "" : "s"} added and published.`
+              : `${result.added} new file${result.added === 1 ? "" : "s"} added — all still hidden until you publish them.`;
+      setNotice([headline, ...(result.report ?? [])].join("\n"));
+      refresh();
+    },
+    onError: (e: Error) => setNotice(e.message),
+  });
+
+  const live = useMutation({
+    mutationFn: (input: { autoSync: boolean; autoPublish: boolean; autoDownloads: boolean }) =>
+      setEventLive({ data: { eventId, ...input } }),
+    onSuccess: () => {
+      setNotice(null);
+      refresh();
+    },
+    onError: (e: Error) => setNotice(e.message),
+  });
+
+  const restoreRemoved = useMutation({
+    mutationFn: () => clearRemovedFiles({ data: { eventId } }),
+    onSuccess: () => {
+      setNotice('Removed files will come back (hidden) the next time Drive is checked.');
       refresh();
     },
     onError: (e: Error) => setNotice(e.message),
@@ -142,18 +159,7 @@ function ManageGalleryPage() {
     onSuccess: refresh,
   });
 
-  const live = useMutation({
-    mutationFn: (input: { autoSync: boolean; autoPublish: boolean; autoDownloads: boolean }) =>
-      setEventLive({ data: { eventId, ...input } }),
-    onSuccess: () => { setNotice(null); refresh(); },
-    onError: (e: Error) => setNotice(e.message),
-  });
-  const restoreRemoved = useMutation({
-    mutationFn: () => clearRemovedFiles({ data: { eventId } }),
-    onSuccess: () => { setNotice("Removed files will come back (hidden) the next time Drive is checked."); refresh(); },
-    onError: (e: Error) => setNotice(e.message),
-  });
-
+  // While this page is open and live sync is on, look for new Drive files every 30 seconds.
   const liveEvent = (overview.data as any)?.event;
   const autoOn = liveEvent?.auto_sync === true && (overview.data as any)?.driveConnected === true;
   const checking = useRef(false);
@@ -172,6 +178,7 @@ function ManageGalleryPage() {
       }
     }, 30_000);
     return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOn, eventId]);
 
   if (overview.isPending) return <main className="admin-page"><p>Loading…</p></main>;
@@ -208,7 +215,7 @@ function ManageGalleryPage() {
     if (ids.length === 0) return;
     if (
       window.confirm(
-        `Remove ${label} from the gallery?\n\nThis deletes them from the gallery only. The original files in Google Drive are not touched, and automatic sync won't bring them back. This cannot be undone.`,
+        `Remove ${label} from the gallery?\n\nThis removes them from the gallery only. The original files in Google Drive are not touched, and automatic sync won't bring them back (you can undo this later under Live sync).`,
       )
     ) {
       removeFiles.mutate(ids);
@@ -280,78 +287,95 @@ function ManageGalleryPage() {
 
       <section className="admin-panel">
         <h2>Live sync</h2>
-        <label className="admin-check">
-          <input
-            type="checkbox"
-            checked={event.auto_sync === true}
-            disabled={live.isPending}
-            onChange={(e) =>
-              live.mutate({
-                autoSync: e.target.checked,
-                autoPublish: event.auto_publish === true,
-                autoDownloads: event.auto_downloads === true,
-              })
-            }
-          />
-          Check Google Drive automatically for new photos
-        </label>
-        <label className="admin-check">
-          <input
-            type="checkbox"
-            checked={event.auto_publish === true}
-            disabled={live.isPending}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              if (
-                checked &&
-                !window.confirm(
-                  "New photos added to your Drive folders will appear on the public page right away, without you reviewing them. Turn this on?",
-                )
-              ) {
-                return;
-              }
-              live.mutate({
-                autoSync: event.auto_sync === true,
-                autoPublish: checked,
-                autoDownloads: checked && event.auto_downloads === true,
-              });
-            }}
-          />
-          Show new photos on the website automatically
-        </label>
-        <label className="admin-check">
-          <input
-            type="checkbox"
-            checked={event.auto_downloads === true}
-            disabled={live.isPending || event.auto_publish !== true}
-            onChange={(e) =>
-              live.mutate({
-                autoSync: event.auto_sync === true,
-                autoPublish: event.auto_publish === true,
-                autoDownloads: e.target.checked,
-              })
-            }
-          />
-          Also let guests download new photos
-        </label>
-        <p className="adm-hint">
-          While this event's page is open (on your screen or a guest's phone), Drive is checked about every 30 seconds. With "show automatically" off, new photos wait here, hidden, until you publish them.
-          {event.last_synced_at ? ` Last checked ${new Date(event.last_synced_at).toLocaleString()}.` : ""}
-        </p>
-        {removedCount > 0 ? (
-          <button
-            type="button"
-            className="admin-link"
-            disabled={restoreRemoved.isPending}
-            onClick={() => {
-              if (window.confirm(`Bring back ${removedCount} removed file${removedCount === 1 ? "" : "s"}? They will return hidden the next time Drive is checked.`)) {
-                restoreRemoved.mutate();
-              }
-            }}
-          >
-            Bring back removed files ({removedCount})
-          </button>
-        ) : null}
+        {event.auto_sync === undefined ? (
+          <p className="archive-note">
+            Live sync needs a one-time database setup. Once it has been run, reload this page.
+          </p>
+        ) : (
+          <>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={event.auto_sync === true}
+                disabled={live.isPending}
+                onChange={(e) =>
+                  live.mutate({
+                    autoSync: e.target.checked,
+                    autoPublish: event.auto_publish === true,
+                    autoDownloads: event.auto_downloads === true,
+                  })
+                }
+              />
+              Check Google Drive automatically for new photos
+            </label>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={event.auto_publish === true}
+                disabled={live.isPending}
+                onChange={(e) => {
+                  if (
+                    e.target.checked &&
+                    !window.confirm(
+                      "New photos added to your Drive folders will appear on the public page right away, without you reviewing them. Turn this on?",
+                    )
+                  ) {
+                    return;
+                  }
+                  live.mutate({
+                    autoSync: event.auto_sync === true,
+                    autoPublish: e.target.checked,
+                    autoDownloads: e.target.checked && event.auto_downloads === true,
+                  });
+                }}
+              />
+              Show new photos on the website automatically
+            </label>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={event.auto_downloads === true}
+                disabled={live.isPending || event.auto_publish !== true}
+                onChange={(e) =>
+                  live.mutate({
+                    autoSync: event.auto_sync === true,
+                    autoPublish: event.auto_publish === true,
+                    autoDownloads: e.target.checked,
+                  })
+                }
+              />
+              Also let guests download new photos
+            </label>
+            <p className="adm-hint">
+              While this event's page is open (on your screen or a guest's phone), Drive is checked
+              about every 30 seconds. With "show automatically" off, new photos wait here, hidden,
+              until you publish them.
+              {event.last_synced_at
+                ? ` Last checked ${new Date(event.last_synced_at).toLocaleString()}.`
+                : ""}
+            </p>
+            {removedCount > 0 ? (
+              <div className="admin-actions">
+                <button
+                  type="button"
+                  className="admin-link"
+                  disabled={restoreRemoved.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Allow the ${removedCount} files you removed to come back from Drive? They return hidden unless "show automatically" is on.`,
+                      )
+                    ) {
+                      restoreRemoved.mutate();
+                    }
+                  }}
+                >
+                  Bring back removed files ({removedCount})
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       <section className="admin-panel">
@@ -479,7 +503,7 @@ function ManageGalleryPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  `Remove ALL ${rows.length} ${categoryLabel} files from the gallery?\n\nThe original files in Google Drive are not touched, and automatic sync won't bring them back. This cannot be undone.`,
+                  `Remove ALL ${rows.length} ${categoryLabel} files from the gallery?\n\nThe original files in Google Drive are not touched. This cannot be undone.`,
                 )
               ) {
                 removeCategory.mutate();
