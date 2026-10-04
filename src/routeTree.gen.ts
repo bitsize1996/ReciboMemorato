@@ -12,9 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as McpRouteImport } from './routes/mcp'
+import { Route as BookRouteImport } from './routes/book'
+import { Route as ProofsRouteImport } from './routes/proofs'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
 import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
@@ -23,10 +23,12 @@ import { Route as AuthenticatedAdminCalendarRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminCustomizeRouteImport } from './routes/_authenticated/admin.customize'
 import { Route as AuthenticatedAdminEventsRouteImport } from './routes/_authenticated/admin.events'
 import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authenticated/admin.expenses'
+import { Route as AuthenticatedAdminInquiriesRouteImport } from './routes/_authenticated/admin.inquiries'
 import { Route as AuthenticatedAdminMaterialsRouteImport } from './routes/_authenticated/admin.materials'
 import { Route as AuthenticatedAdminPackagesRouteImport } from './routes/_authenticated/admin.packages'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
+import { Route as AuthenticatedAdminShowcaseRouteImport } from './routes/_authenticated/admin.showcase'
 import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/memory-media'
 import { Route as ApiPublicSiteImageRouteImport } from './routes/api/public/site-image'
 import { Route as ApiPublicSyncDriveRouteImport } from './routes/api/public/sync-drive'
@@ -49,9 +51,14 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
+const BookRoute = BookRouteImport.update({
+  id: '/book',
+  path: '/book',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProofsRoute = ProofsRouteImport.update({
+  id: '/proofs',
+  path: '/proofs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -59,12 +66,6 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -109,6 +110,12 @@ const AuthenticatedAdminExpensesRoute =
     path: '/expenses',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminInquiriesRoute =
+  AuthenticatedAdminInquiriesRouteImport.update({
+    id: '/inquiries',
+    path: '/inquiries',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminMaterialsRoute =
   AuthenticatedAdminMaterialsRouteImport.update({
     id: '/materials',
@@ -131,6 +138,12 @@ const AuthenticatedAdminSettingsRoute =
   AuthenticatedAdminSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminShowcaseRoute =
+  AuthenticatedAdminShowcaseRouteImport.update({
+    id: '/showcase',
+    path: '/showcase',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const ApiPublicMemoryMediaRoute = ApiPublicMemoryMediaRouteImport.update({
@@ -176,9 +189,9 @@ const AuthenticatedAdminSalesSaleIdInvoiceRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/mcp': typeof McpRoute
+  '/book': typeof BookRoute
+  '/proofs': typeof ProofsRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
@@ -186,10 +199,12 @@ export interface FileRoutesByFullPath {
   '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
+  '/admin/inquiries': typeof AuthenticatedAdminInquiriesRoute
   '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
   '/admin/packages': typeof AuthenticatedAdminPackagesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/showcase': typeof AuthenticatedAdminShowcaseRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
   '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
@@ -202,19 +217,21 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/mcp': typeof McpRoute
+  '/book': typeof BookRoute
+  '/proofs': typeof ProofsRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories': typeof MemoriesIndexRoute
   '/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
   '/admin/expenses': typeof AuthenticatedAdminExpensesRoute
+  '/admin/inquiries': typeof AuthenticatedAdminInquiriesRoute
   '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
   '/admin/packages': typeof AuthenticatedAdminPackagesRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/admin/showcase': typeof AuthenticatedAdminShowcaseRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
   '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
@@ -229,9 +246,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/mcp': typeof McpRoute
+  '/book': typeof BookRoute
+  '/proofs': typeof ProofsRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
@@ -239,10 +256,12 @@ export interface FileRoutesById {
   '/_authenticated/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/_authenticated/admin/events': typeof AuthenticatedAdminEventsRoute
   '/_authenticated/admin/expenses': typeof AuthenticatedAdminExpensesRoute
+  '/_authenticated/admin/inquiries': typeof AuthenticatedAdminInquiriesRoute
   '/_authenticated/admin/materials': typeof AuthenticatedAdminMaterialsRoute
   '/_authenticated/admin/packages': typeof AuthenticatedAdminPackagesRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
+  '/_authenticated/admin/showcase': typeof AuthenticatedAdminShowcaseRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
   '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
@@ -257,9 +276,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/mcp'
+    | '/book'
+    | '/proofs'
     | '/reset-password'
-    | '/.well-known/oauth-protected-resource'
     | '/admin'
     | '/memories/$slug'
     | '/memories/'
@@ -267,10 +286,12 @@ export interface FileRouteTypes {
     | '/admin/customize'
     | '/admin/events'
     | '/admin/expenses'
+    | '/admin/inquiries'
     | '/admin/materials'
     | '/admin/packages'
     | '/admin/reports'
     | '/admin/settings'
+    | '/admin/showcase'
     | '/api/public/memory-media'
     | '/api/public/site-image'
     | '/api/public/sync-drive'
@@ -283,19 +304,21 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/mcp'
+    | '/book'
+    | '/proofs'
     | '/reset-password'
-    | '/.well-known/oauth-protected-resource'
     | '/memories/$slug'
     | '/memories'
     | '/admin/calendar'
     | '/admin/customize'
     | '/admin/events'
     | '/admin/expenses'
+    | '/admin/inquiries'
     | '/admin/materials'
     | '/admin/packages'
     | '/admin/reports'
     | '/admin/settings'
+    | '/admin/showcase'
     | '/api/public/memory-media'
     | '/api/public/site-image'
     | '/api/public/sync-drive'
@@ -309,9 +332,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/mcp'
+    | '/book'
+    | '/proofs'
     | '/reset-password'
-    | '/.well-known/oauth-protected-resource'
     | '/_authenticated/admin'
     | '/memories/$slug'
     | '/memories/'
@@ -319,10 +342,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/customize'
     | '/_authenticated/admin/events'
     | '/_authenticated/admin/expenses'
+    | '/_authenticated/admin/inquiries'
     | '/_authenticated/admin/materials'
     | '/_authenticated/admin/packages'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/settings'
+    | '/_authenticated/admin/showcase'
     | '/api/public/memory-media'
     | '/api/public/site-image'
     | '/api/public/sync-drive'
@@ -337,9 +362,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  McpRoute: typeof McpRoute
+  BookRoute: typeof BookRoute
+  ProofsRoute: typeof ProofsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   MemoriesSlugRoute: typeof MemoriesSlugRoute
   MemoriesIndexRoute: typeof MemoriesIndexRoute
   ApiPublicMemoryMediaRoute: typeof ApiPublicMemoryMediaRoute
@@ -370,11 +395,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
+    '/book': {
+      id: '/book'
+      path: '/book'
+      fullPath: '/book'
+      preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proofs': {
+      id: '/proofs'
+      path: '/proofs'
+      fullPath: '/proofs'
+      preLoaderRoute: typeof ProofsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -382,13 +414,6 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -447,6 +472,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminExpensesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/inquiries': {
+      id: '/_authenticated/admin/inquiries'
+      path: '/inquiries'
+      fullPath: '/admin/inquiries'
+      preLoaderRoute: typeof AuthenticatedAdminInquiriesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/materials': {
       id: '/_authenticated/admin/materials'
       path: '/materials'
@@ -473,6 +505,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/admin/settings'
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/showcase': {
+      id: '/_authenticated/admin/showcase'
+      path: '/showcase'
+      fullPath: '/admin/showcase'
+      preLoaderRoute: typeof AuthenticatedAdminShowcaseRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/api/public/memory-media': {
@@ -547,10 +586,12 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminCustomizeRoute: typeof AuthenticatedAdminCustomizeRoute
   AuthenticatedAdminEventsRoute: typeof AuthenticatedAdminEventsRoute
   AuthenticatedAdminExpensesRoute: typeof AuthenticatedAdminExpensesRoute
+  AuthenticatedAdminInquiriesRoute: typeof AuthenticatedAdminInquiriesRoute
   AuthenticatedAdminMaterialsRoute: typeof AuthenticatedAdminMaterialsRoute
   AuthenticatedAdminPackagesRoute: typeof AuthenticatedAdminPackagesRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
+  AuthenticatedAdminShowcaseRoute: typeof AuthenticatedAdminShowcaseRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminGalleryEventIdRoute: typeof AuthenticatedAdminGalleryEventIdRoute
   AuthenticatedAdminSalesSaleIdRoute: typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
@@ -562,10 +603,12 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminCustomizeRoute: AuthenticatedAdminCustomizeRoute,
   AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
   AuthenticatedAdminExpensesRoute: AuthenticatedAdminExpensesRoute,
+  AuthenticatedAdminInquiriesRoute: AuthenticatedAdminInquiriesRoute,
   AuthenticatedAdminMaterialsRoute: AuthenticatedAdminMaterialsRoute,
   AuthenticatedAdminPackagesRoute: AuthenticatedAdminPackagesRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
+  AuthenticatedAdminShowcaseRoute: AuthenticatedAdminShowcaseRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminGalleryEventIdRoute: AuthenticatedAdminGalleryEventIdRoute,
   AuthenticatedAdminSalesSaleIdRoute:
@@ -591,10 +634,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  McpRoute: McpRoute,
+  BookRoute: BookRoute,
+  ProofsRoute: ProofsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  Char91DotwellKnownChar93OauthProtectedResourceRoute:
-    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   MemoriesSlugRoute: MemoriesSlugRoute,
   MemoriesIndexRoute: MemoriesIndexRoute,
   ApiPublicMemoryMediaRoute: ApiPublicMemoryMediaRoute,
