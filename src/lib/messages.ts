@@ -34,7 +34,7 @@ export function useBusinessInfo() {
  * Opens a ready-to-send Gmail message. `from` picks which signed-in Google
  * account to use, so it always goes out from your Recibo Memorato address.
  */
-export function gmailComposeUrl(opts: { from?: string; to?: string; subject: string; body: string }) {
+export function gmailComposeUrl(opts: { from?: string | undefined; to?: string | undefined; subject: string; body: string }) {
   const params = new URLSearchParams({ view: "cm", fs: "1", su: opts.subject, body: opts.body });
   if (opts.to) params.set("to", opts.to);
   if (opts.from) params.set("authuser", opts.from);
