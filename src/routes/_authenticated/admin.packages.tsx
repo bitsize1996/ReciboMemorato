@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAddons, useMaterials, usePackages } from "@/lib/admin-data";
 import { margin, n, pct, peso } from "@/lib/finance";
+import { HEADING_ORDER, materialHeading } from "@/lib/materials";
 import { analyzePrice, opCostAt, opsFromSaved, suggestPrice, type MarginMode, type OpCost } from "@/lib/pricing";
 
 export const Route = createFileRoute("/_authenticated/admin/packages")({
@@ -245,9 +246,16 @@ function PackagesPage() {
                   <div className="adm-line" key={i}>
                     <select value={l.material_id} onChange={(e) => setLine(i, { material_id: e.target.value })} aria-label="Material">
                       <option value="">Choose material…</option>
-                      {(materials.data ?? []).filter((x) => x.active || x.id === l.material_id).map((x) => (
-                        <option key={x.id} value={x.id}>{x.name}</option>
-                      ))}
+                      {HEADING_ORDER.map((heading) => {
+                        const group = (materials.data ?? []).filter(
+                          (x) => (x.active || x.id === l.material_id) && materialHeading((x as { used_for?: unknown }).used_for) === heading,
+                        );
+                        return group.length ? (
+                          <optgroup key={heading} label={heading}>
+                            {group.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                          </optgroup>
+                        ) : null;
+                      })}
                     </select>
                     <input type="number" step="0.01" min="0" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} aria-label="Pieces" title="Pieces used" />
                     <span>{m ? `× ${peso(m.current_unit_cost)}/${m.unit}` : ""}</span>
