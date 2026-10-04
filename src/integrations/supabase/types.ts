@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      addons: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          price: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      business_info: {
+        Row: {
+          contact_email: string | null
+          id: number
+          payment_instructions: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          id?: number
+          payment_instructions?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          id?: number
+          payment_instructions?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       event_categories: {
         Row: {
           created_at: string
@@ -45,6 +99,7 @@ export type Database = {
           auto_publish: boolean
           auto_sync: boolean
           category_id: string | null
+          cover_position: string | null
           cover_url: string | null
           created_at: string
           digitals_enabled: boolean
@@ -64,6 +119,7 @@ export type Database = {
           singles_folder_id: string | null
           slug: string
           sort_order: number
+          tags: string[]
           updated_at: string
         }
         Insert: {
@@ -72,6 +128,7 @@ export type Database = {
           auto_publish?: boolean
           auto_sync?: boolean
           category_id?: string | null
+          cover_position?: string | null
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -91,6 +148,7 @@ export type Database = {
           singles_folder_id?: string | null
           slug: string
           sort_order?: number
+          tags?: string[]
           updated_at?: string
         }
         Update: {
@@ -99,6 +157,7 @@ export type Database = {
           auto_publish?: boolean
           auto_sync?: boolean
           category_id?: string | null
+          cover_position?: string | null
           cover_url?: string | null
           created_at?: string
           digitals_enabled?: boolean
@@ -118,6 +177,7 @@ export type Database = {
           singles_folder_id?: string | null
           slug?: string
           sort_order?: number
+          tags?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -130,12 +190,206 @@ export type Database = {
           },
         ]
       }
+      inquiries: {
+        Row: {
+          contact: string | null
+          contact_method: string
+          created_at: string
+          delivery_method: string | null
+          email: string | null
+          event_date: string | null
+          event_type: string | null
+          guests: number | null
+          id: string
+          inquiry_number: number
+          internal_notes: string | null
+          kind: string
+          last_contact_at: string | null
+          message: string | null
+          name: string
+          order_details: string | null
+          package_id: string | null
+          package_interest: string | null
+          photos_link: string | null
+          quantity: number | null
+          quoted_amount: number | null
+          sale_id: string | null
+          source: string
+          status: string
+          theme: string | null
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          contact?: string | null
+          contact_method?: string
+          created_at?: string
+          delivery_method?: string | null
+          email?: string | null
+          event_date?: string | null
+          event_type?: string | null
+          guests?: number | null
+          id?: string
+          inquiry_number?: number
+          internal_notes?: string | null
+          kind?: string
+          last_contact_at?: string | null
+          message?: string | null
+          name: string
+          order_details?: string | null
+          package_id?: string | null
+          package_interest?: string | null
+          photos_link?: string | null
+          quantity?: number | null
+          quoted_amount?: number | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          theme?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          contact?: string | null
+          contact_method?: string
+          created_at?: string
+          delivery_method?: string | null
+          email?: string | null
+          event_date?: string | null
+          event_type?: string | null
+          guests?: number | null
+          id?: string
+          inquiry_number?: number
+          internal_notes?: string | null
+          kind?: string
+          last_contact_at?: string | null
+          message?: string | null
+          name?: string
+          order_details?: string | null
+          package_id?: string | null
+          package_interest?: string | null
+          photos_link?: string | null
+          quantity?: number | null
+          quoted_amount?: number | null
+          sale_id?: string | null
+          source?: string
+          status?: string
+          theme?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiries_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inquiry_addons: {
+        Row: {
+          addon_id: string | null
+          created_at: string
+          id: string
+          inquiry_id: string
+          name_snapshot: string
+          price_snapshot: number
+          quantity: number
+        }
+        Insert: {
+          addon_id?: string | null
+          created_at?: string
+          id?: string
+          inquiry_id: string
+          name_snapshot: string
+          price_snapshot?: number
+          quantity?: number
+        }
+        Update: {
+          addon_id?: string | null
+          created_at?: string
+          id?: string
+          inquiry_id?: string
+          name_snapshot?: string
+          price_snapshot?: number
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiry_addons_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiry_addons_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_movements: {
+        Row: {
+          change: number
+          created_at: string
+          id: string
+          kind: string
+          material_id: string
+          note: string | null
+          sale_id: string | null
+          sale_material_id: string | null
+          unit_cost: number | null
+        }
+        Insert: {
+          change: number
+          created_at?: string
+          id?: string
+          kind?: string
+          material_id: string
+          note?: string | null
+          sale_id?: string | null
+          sale_material_id?: string | null
+          unit_cost?: number | null
+        }
+        Update: {
+          change?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          material_id?: string
+          note?: string | null
+          sale_id?: string | null
+          sale_material_id?: string | null
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_movements_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           active: boolean
           category: string | null
           created_at: string
-          current_stock: number | null
+          current_stock: number
           current_unit_cost: number
           id: string
           min_stock: number | null
@@ -143,12 +397,13 @@ export type Database = {
           supplier: string | null
           unit: string
           updated_at: string
+          used_for: string[]
         }
         Insert: {
           active?: boolean
           category?: string | null
           created_at?: string
-          current_stock?: number | null
+          current_stock?: number
           current_unit_cost?: number
           id?: string
           min_stock?: number | null
@@ -156,12 +411,13 @@ export type Database = {
           supplier?: string | null
           unit?: string
           updated_at?: string
+          used_for?: string[]
         }
         Update: {
           active?: boolean
           category?: string | null
           created_at?: string
-          current_stock?: number | null
+          current_stock?: number
           current_unit_cost?: number
           id?: string
           min_stock?: number | null
@@ -169,6 +425,7 @@ export type Database = {
           supplier?: string | null
           unit?: string
           updated_at?: string
+          used_for?: string[]
         }
         Relationships: []
       }
@@ -206,6 +463,7 @@ export type Database = {
           category: string
           created_at: string
           download_enabled: boolean
+          drive_created_at: string | null
           drive_file_id: string
           event_id: string
           full_url: string | null
@@ -224,6 +482,7 @@ export type Database = {
           category: string
           created_at?: string
           download_enabled?: boolean
+          drive_created_at?: string | null
           drive_file_id: string
           event_id: string
           full_url?: string | null
@@ -242,6 +501,7 @@ export type Database = {
           category?: string
           created_at?: string
           download_enabled?: boolean
+          drive_created_at?: string | null
           drive_file_id?: string
           event_id?: string
           full_url?: string | null
@@ -265,6 +525,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      order_previews: {
+        Row: {
+          created_at: string
+          customer_comment: string | null
+          id: string
+          image_path: string
+          inquiry_id: string
+          note: string | null
+          responded_at: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          customer_comment?: string | null
+          id?: string
+          image_path: string
+          inquiry_id: string
+          note?: string | null
+          responded_at?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          customer_comment?: string | null
+          id?: string
+          image_path?: string
+          inquiry_id?: string
+          note?: string | null
+          responded_at?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_previews_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "inquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_showcase: {
+        Row: {
+          caption: string | null
+          completed_on: string | null
+          created_at: string
+          customer_label: string | null
+          id: string
+          image_url: string
+          product: string
+          published: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          caption?: string | null
+          completed_on?: string | null
+          created_at?: string
+          customer_label?: string | null
+          id?: string
+          image_url: string
+          product?: string
+          published?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          caption?: string | null
+          completed_on?: string | null
+          created_at?: string
+          customer_label?: string | null
+          id?: string
+          image_url?: string
+          product?: string
+          published?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       package_materials: {
         Row: {
@@ -313,9 +659,14 @@ export type Database = {
           estimated_other_costs: number
           id: string
           included_services: string | null
+          margin_mode: string
           name: string
           notes: string | null
+          operation_costs: Json
+          popup_available: boolean
           selling_price: number
+          service_type: string
+          target_margin: number | null
           updated_at: string
         }
         Insert: {
@@ -325,9 +676,14 @@ export type Database = {
           estimated_other_costs?: number
           id?: string
           included_services?: string | null
+          margin_mode?: string
           name: string
           notes?: string | null
+          operation_costs?: Json
+          popup_available?: boolean
           selling_price?: number
+          service_type?: string
+          target_margin?: number | null
           updated_at?: string
         }
         Update: {
@@ -337,12 +693,65 @@ export type Database = {
           estimated_other_costs?: number
           id?: string
           included_services?: string | null
+          margin_mode?: string
           name?: string
           notes?: string | null
+          operation_costs?: Json
+          popup_available?: boolean
           selling_price?: number
+          service_type?: string
+          target_margin?: number | null
           updated_at?: string
         }
         Relationships: []
+      }
+      sale_addons: {
+        Row: {
+          addon_id: string | null
+          created_at: string
+          id: string
+          name_snapshot: string
+          quantity: number
+          sale_id: string
+          total_price: number | null
+          unit_price_snapshot: number
+        }
+        Insert: {
+          addon_id?: string | null
+          created_at?: string
+          id?: string
+          name_snapshot: string
+          quantity?: number
+          sale_id: string
+          total_price?: number | null
+          unit_price_snapshot?: number
+        }
+        Update: {
+          addon_id?: string | null
+          created_at?: string
+          id?: string
+          name_snapshot?: string
+          quantity?: number
+          sale_id?: string
+          total_price?: number | null
+          unit_price_snapshot?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_addons_addon_id_fkey"
+            columns: ["addon_id"]
+            isOneToOne: false
+            referencedRelation: "addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_addons_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sale_expenses: {
         Row: {
@@ -350,30 +759,39 @@ export type Database = {
           category: string
           created_at: string
           description: string
+          ends_on: string | null
           expense_date: string
           id: string
+          kind: string
           notes: string | null
-          sale_id: string
+          recurrence: string | null
+          sale_id: string | null
         }
         Insert: {
           amount?: number
           category?: string
           created_at?: string
           description: string
+          ends_on?: string | null
           expense_date?: string
           id?: string
+          kind?: string
           notes?: string | null
-          sale_id: string
+          recurrence?: string | null
+          sale_id?: string | null
         }
         Update: {
           amount?: number
           category?: string
           created_at?: string
           description?: string
+          ends_on?: string | null
           expense_date?: string
           id?: string
+          kind?: string
           notes?: string | null
-          sale_id?: string
+          recurrence?: string | null
+          sale_id?: string | null
         }
         Relationships: [
           {
@@ -445,7 +863,9 @@ export type Database = {
           event_date: string | null
           event_id: string | null
           event_name: string | null
+          event_theme: string | null
           event_time: string | null
+          event_venue: string | null
           gcal_event_id: string | null
           id: string
           notes: string | null
@@ -468,7 +888,9 @@ export type Database = {
           event_date?: string | null
           event_id?: string | null
           event_name?: string | null
+          event_theme?: string | null
           event_time?: string | null
+          event_venue?: string | null
           gcal_event_id?: string | null
           id?: string
           notes?: string | null
@@ -491,7 +913,9 @@ export type Database = {
           event_date?: string | null
           event_id?: string | null
           event_name?: string | null
+          event_theme?: string | null
           event_time?: string | null
+          event_venue?: string | null
           gcal_event_id?: string | null
           id?: string
           notes?: string | null
@@ -613,6 +1037,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      sync_sale_material_stock: { Args: { p_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
