@@ -1,7 +1,7 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, MessageCircle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { peso } from "@/lib/finance";
@@ -149,8 +149,28 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
   const items = bullets(pkg.includedServices);
   const [viewing, setViewing] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const cover = pkg.photos[0];
+  // Browse the samples right on the card; tapping the big photo still opens the full-screen viewer.
+  const [current, setCurrent] = useState(0);
+  const touchStart = useRef<number | null>(null);
+  const swiped = useRef(false);
+  const total = pkg.photos.length;
+  const photo = pkg.photos[current];
+  const go = (step: number) => setCurrent((i) => (i + step + total) % total);
   const visibleItems = showAll ? items : items.slice(0, 3);
+  const arrow: React.CSSProperties = {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    display: "grid",
+    placeItems: "center",
+    width: 36,
+    height: 36,
+    border: "1px solid rgba(255,255,255,.8)",
+    borderRadius: "50%",
+    background: "rgba(0,0,0,.45)",
+    color: "#fff",
+    cursor: "pointer",
+  };
 
   return (
     <article
@@ -162,23 +182,81 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
         overflow: "hidden",
       }}
     >
-      {/* One consistent photo area, so every card lines up. */}
-      <div style={{ position: "relative", aspectRatio: "4 / 3", background: "color-mix(in oklab, var(--foreground) 6%, var(--card))" }}>
-        {cover ? (
-          <button
-            type="button"
-            onClick={() => setViewing(0)}
-            aria-label={`View ${pkg.photos.length} sample photo${pkg.photos.length === 1 ? "" : "s"} of ${pkg.name}`}
-            style={{ display: "block", width: "100%", height: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
-          >
-            <img
-              src={cover.url}
-              alt={cover.caption ?? `${pkg.name} sample`}
-              loading="lazy"
-              decoding="async"
-              style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%" }}
-            />
+      {/* Photo area: swipe or use the arrows and thumbnails to browse; tap the big photo to enlarge. */}
+      <div>
+        <div
+          style={{
+            position: "relative",
+            aspectRatio: "4 / 3",
+            background: "color-mix(in oklab, var(--foreground) 6%, var(--card))",
+            touchAction: "pan-y",
+          }}
+          onTouchStart={(e) => {
+            touchStart.current = e.touches[0]?.clientX ?? null;
+            swiped.current = false;
+          }}
+          onTouchEnd={(e) => {
+            const start = touchStart.current;
+            touchStart.current = null;
+            const end = e.changedTouches[0]?.clientX;
+            if (start == null || end == null || total < 2) return;
+            const dx = end - start;
+            if (Math.abs(dx) > 40) {
+              swiped.current = true;
+              go(dx < 0 ? 1 : -1);
+            }
+          }}
+        >
+          {photo ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (swiped.current) {
+                  swiped.current = false;
+                  return;
+                }
+                setViewing(current);
+              }}
+              aria-label={`Enlarge photo ${current + 1} of ${total} for ${pkg.name}`}
+              style={{ display: "block", width: "100%", height: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
+            >
+              <img
+                key={photo.url}
+                src={photo.url}
+                alt={photo.caption ?? `${pkg.name} sample ${current + 1}`}
+                decoding="async"
+                style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%" }}
+              />
+            </button>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                placeItems: "center",
+                height: "100%",
+                color: "var(--muted-foreground)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                textTransform: "uppercase",
+                letterSpacing: ".06em",
+              }}
+            >
+              Photos coming soon
+            </div>
+          )}
+          {total > 1 ? (
+            <>
+              <button type="button" onClick={() => go(-1)} aria-label="Previous photo" style={{ ...arrow, left: 8 }}>
+                <ChevronLeft className="size-4" aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => go(1)} aria-label="Next photo" style={{ ...arrow, right: 8 }}>
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </button>
+            </>
+          ) : null}
+          {photo ? (
             <span
+              aria-hidden="true"
               style={{
                 position: "absolute",
                 right: 10,
@@ -189,44 +267,57 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
                 color: "#fff",
                 fontFamily: "var(--font-mono)",
                 fontSize: 11,
+                pointerEvents: "none",
               }}
             >
-              {pkg.photos.length > 1 ? `${pkg.photos.length} photos` : "View photo"}
+              {total > 1 ? `${current + 1} / ${total} · tap to enlarge` : "tap to enlarge"}
             </span>
-          </button>
-        ) : (
+          ) : null}
+          {pkg.popupAvailable ? (
+            <span
+              style={{
+                position: "absolute",
+                left: 10,
+                top: 10,
+                padding: "4px 10px",
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                textTransform: "uppercase",
+                letterSpacing: ".04em",
+              }}
+            >
+              Also at pop-ups
+            </span>
+          ) : null}
+        </div>
+        {total > 1 ? (
           <div
-            style={{
-              display: "grid",
-              placeItems: "center",
-              height: "100%",
-              color: "var(--muted-foreground)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: ".06em",
-            }}
+            role="group"
+            aria-label="Sample photos"
+            style={{ display: "flex", gap: 8, padding: "10px 12px", overflowX: "auto", borderBottom: "1px solid var(--border)" }}
           >
-            Photos coming soon
+            {pkg.photos.map((item, i) => (
+              <button
+                key={item.url}
+                type="button"
+                onClick={() => setCurrent(i)}
+                aria-label={`Show photo ${i + 1}`}
+                aria-current={i === current}
+                style={{
+                  flex: "0 0 auto",
+                  padding: 0,
+                  border: i === current ? "2px solid var(--primary)" : "2px solid transparent",
+                  opacity: i === current ? 1 : 0.65,
+                  background: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <img src={item.url} alt="" loading="lazy" style={{ display: "block", width: 58, height: 58, objectFit: "cover" }} />
+              </button>
+            ))}
           </div>
-        )}
-        {pkg.popupAvailable ? (
-          <span
-            style={{
-              position: "absolute",
-              left: 10,
-              top: 10,
-              padding: "4px 10px",
-              background: "var(--background)",
-              border: "1px solid var(--border)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: ".04em",
-            }}
-          >
-            Also at pop-ups
-          </span>
         ) : null}
       </div>
 
