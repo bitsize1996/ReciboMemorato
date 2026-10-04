@@ -25,6 +25,7 @@ import { listPublishedEvents } from "@/lib/gallery.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import { richText, type SiteSettings } from "@/lib/site-settings";
 import { normalizeHome, type SectionKey } from "@/lib/site-homepage";
+import { SERVICE_CARD_LINES } from "@/lib/product-lines";
 
 const eventsQuery = queryOptions({
   queryKey: ["events"],
@@ -134,6 +135,8 @@ const NAV_CSS = `
 .to-top.is-visible { opacity: 1; transform: none; pointer-events: auto; }
 section[id], footer[id] { scroll-margin-top: 76px; }
 .faq-intro { top: 100px; }
+@media (min-width: 768px) { .nav-shell .site-header nav { gap: 16px; } }
+@media (min-width: 1100px) { .nav-shell .site-header nav { gap: 28px; } }
 @media (min-width: 768px) { .nav-toggle, .nav-panel { display: none; } }
 `;
 
@@ -196,6 +199,7 @@ function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: st
           <BrandMark s={s} />
           <nav aria-label="Main navigation" className="hidden items-center gap-8 md:flex">
             {shown("services") ? <a href="#services" className={cls("services")}>Services</a> : null}
+            <Link to="/packages">Packages</Link>
             <Link to="/memories">Memory archive</Link>
             <Link to="/proofs">Proof of orders</Link>
             {shown("story") ? <a href="#story" className={cls("story")}>Our story</a> : null}
@@ -229,6 +233,7 @@ function SiteHeader({ s, hiddenSections }: { s: SiteSettings; hiddenSections: st
         {open ? (
           <nav id="mobile-nav" className="nav-panel" aria-label="Mobile navigation">
             {shown("services") ? <a href="#services" onClick={close} className={cls("services")}>Services</a> : null}
+            <Link to="/packages" onClick={close}>Packages</Link>
             <Link to="/memories" onClick={close}>Memory archive</Link>
             <Link to="/proofs" onClick={close}>Proof of orders</Link>
             {shown("story") ? <a href="#story" onClick={close} className={cls("story")}>Our story</a> : null}
@@ -365,6 +370,11 @@ function Index() {
                   <h3>{service.title}</h3>
                   <strong>{service.tagline}</strong>
                   <p>{service.body}</p>
+                  {SERVICE_CARD_LINES[index] ? (
+                    <Link to="/packages" hash={SERVICE_CARD_LINES[index]} className="teaser-link">
+                      See packages <ArrowUpRight aria-hidden="true" />
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             );
@@ -470,7 +480,7 @@ function Index() {
       <footer className="site-footer" id="contact">
         <BrandMark s={s} />
         <p>{h.footerDescription}</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/memories">Memory archive</Link><Link to="/proofs">Proof of orders</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/packages">Packages</Link><Link to="/memories">Memory archive</Link><Link to="/proofs">Proof of orders</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
         <div className="flex items-center gap-4">
           {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
             <a key={href} href={href} className="footer-social" target="_blank" rel="noreferrer" aria-label={label}>

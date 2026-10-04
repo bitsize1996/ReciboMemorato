@@ -30,6 +30,9 @@ export const Route = createFileRoute("/book")({
       { property: "og:type", content: "website" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { package?: string } => ({
+    package: typeof search["package"] === "string" ? search["package"] : undefined,
+  }),
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(optionsQuery),
@@ -86,7 +89,12 @@ function SectionTitle({ number, children }: { number: string; children: React.Re
 function BookPage() {
   const { data: options } = useSuspenseQuery(optionsQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
-  const [form, setForm] = useState(EMPTY);
+  const search = Route.useSearch();
+  // A package picked on the Packages page arrives as ?package=… and starts out selected.
+  const [form, setForm] = useState(() => ({
+    ...EMPTY,
+    packageId: options.packages.some((p) => p.id === search.package) ? (search.package as string) : "",
+  }));
   const [addonQty, setAddonQty] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +104,17 @@ function BookPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const today = new Date().toISOString().slice(0, 10);
+  const contactLabel =
+    form.contactMethod === "messenger"
+      ? "Your Facebook profile link or username *"
+      : form.contactMethod === "email"
+        ? "Your mobile number *"
+        : "Your mobile number *";
+  const contactPlaceholder =
+    form.contactMethod === "messenger" ? "facebook.com/yourname, or your Facebook name" : "0917…";
+  const messengerChatUrl = reference
+    ? `${s.messengerUrl}${s.messengerUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(reference)}`
+    : s.messengerUrl;
   const chosenPackage = options.packages.find((p) => p.id === form.packageId);
   const chosenAddons = options.addons.filter((a) => (addonQty[a.id] ?? 0) > 0);
   const estimate =
@@ -156,11 +175,17 @@ function BookPage() {
               Your estimate: <strong>{peso(estimate)}</strong> (we'll confirm the final quote)
             </p>
           ) : null}
+          {form.contactMethod === "messenger" ? (
+            <p style={{ marginTop: 10, maxWidth: 480, marginInline: "auto" }}>
+              To chat faster, open Messenger below and send us a quick “Hi, my reference is{" "}
+              {reference}”. That's how we match your chat to your inquiry.
+            </p>
+          ) : null}
           <p style={{ marginTop: 20 }}>
             <Button asChild>
-              <a href={s.messengerUrl} target="_blank" rel="noreferrer">
+              <a href={messengerChatUrl} target="_blank" rel="noreferrer">
                 <MessageCircle aria-hidden="true" className="size-4" />
-                Message us on Messenger
+                {form.contactMethod === "messenger" ? "Open Messenger and say hi" : "Message us on Messenger"}
               </a>
             </Button>
           </p>
@@ -174,23 +199,6 @@ function BookPage() {
               <input required value={form.name} onChange={(e) => set("name", e.target.value)} />
             </label>
             <label>
-              Mobile number or Messenger name *
-              <input
-                required
-                value={form.contact}
-                placeholder="0917… or your Facebook name"
-                onChange={(e) => set("contact", e.target.value)}
-              />
-            </label>
-            <label>
-              Email (optional)
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-              />
-            </label>
-            <label>
               Best way to reach you
               <select
                 style={fieldStyle}
@@ -201,6 +209,30 @@ function BookPage() {
                 <option value="call_text">Call / text</option>
                 <option value="email">Email</option>
               </select>
+            </label>
+            <label>
+              {contactLabel}
+              <input
+                required
+                value={form.contact}
+                placeholder={contactPlaceholder}
+                onChange={(e) => set("contact", e.target.value)}
+              />
+              {form.contactMethod === "messenger" ? (
+                <small style={{ textTransform: "none", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted-foreground)" }}>
+                  Tip: open your Facebook profile, tap ⋯, then "Copy link", and paste it here. A name
+                  works too, but a link helps us find you faster.
+                </small>
+              ) : null}
+            </label>
+            <label>
+              Email {form.contactMethod === "email" ? "*" : "(optional)"}
+              <input
+                type="email"
+                required={form.contactMethod === "email"}
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+              />
             </label>
 
             <SectionTitle number="02">Your event</SectionTitle>
