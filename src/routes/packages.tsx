@@ -138,106 +138,173 @@ function PhotoViewer({
   );
 }
 
+const CARD_GRID: React.CSSProperties = {
+  display: "grid",
+  gap: 28,
+  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 320px), 1fr))",
+  alignItems: "stretch",
+};
+
 function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: string }) {
   const items = bullets(pkg.includedServices);
   const [viewing, setViewing] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const cover = pkg.photos[0];
+  const visibleItems = showAll ? items : items.slice(0, 3);
+
   return (
     <article
       style={{
-        display: "grid",
-        gap: 10,
-        alignContent: "start",
-        padding: 18,
+        display: "flex",
+        flexDirection: "column",
         border: "1px solid var(--border)",
         background: "var(--card)",
+        overflow: "hidden",
       }}
     >
-      {cover ? (
-        <button
-          type="button"
-          onClick={() => setViewing(0)}
-          aria-label={`View ${pkg.photos.length} sample photo${pkg.photos.length === 1 ? "" : "s"} of ${pkg.name}`}
-          style={{ position: "relative", display: "block", width: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
-        >
-          <img
-            src={cover.url}
-            alt={cover.caption ?? `${pkg.name} sample`}
-            loading="lazy"
-            decoding="async"
-            style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }}
-          />
+      {/* One consistent photo area, so every card lines up. */}
+      <div style={{ position: "relative", aspectRatio: "4 / 3", background: "color-mix(in oklab, var(--foreground) 6%, var(--card))" }}>
+        {cover ? (
+          <button
+            type="button"
+            onClick={() => setViewing(0)}
+            aria-label={`View ${pkg.photos.length} sample photo${pkg.photos.length === 1 ? "" : "s"} of ${pkg.name}`}
+            style={{ display: "block", width: "100%", height: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
+          >
+            <img
+              src={cover.url}
+              alt={cover.caption ?? `${pkg.name} sample`}
+              loading="lazy"
+              decoding="async"
+              style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%" }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                right: 10,
+                bottom: 10,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "rgba(0,0,0,.68)",
+                color: "#fff",
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+              }}
+            >
+              {pkg.photos.length > 1 ? `${pkg.photos.length} photos` : "View photo"}
+            </span>
+          </button>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              placeItems: "center",
+              height: "100%",
+              color: "var(--muted-foreground)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: ".06em",
+            }}
+          >
+            Photos coming soon
+          </div>
+        )}
+        {pkg.popupAvailable ? (
           <span
             style={{
               position: "absolute",
-              right: 8,
-              bottom: 8,
-              padding: "3px 9px",
-              borderRadius: 999,
-              background: "rgba(0,0,0,.65)",
-              color: "#fff",
+              left: 10,
+              top: 10,
+              padding: "4px 10px",
+              background: "var(--background)",
+              border: "1px solid var(--border)",
               fontFamily: "var(--font-mono)",
-              fontSize: 11,
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: ".04em",
             }}
           >
-            {pkg.photos.length > 1 ? `${pkg.photos.length} photos` : "View photo"}
+            Also at pop-ups
           </span>
-        </button>
-      ) : null}
-      {pkg.photos.length > 1 ? (
-        <div style={{ display: "flex", gap: 6 }}>
-          {pkg.photos.slice(1, 5).map((photo, i) => (
-            <button
-              key={photo.url}
-              type="button"
-              onClick={() => setViewing(i + 1)}
-              aria-label={`View sample photo ${i + 2}`}
-              style={{ flex: "1 1 0", minWidth: 0, padding: 0, border: "1px solid var(--border)", background: "none", cursor: "zoom-in" }}
-            >
-              <img src={photo.url} alt="" loading="lazy" style={{ display: "block", width: "100%", aspectRatio: "1 / 1", objectFit: "cover" }} />
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {viewing !== null ? <PhotoViewer pkg={pkg} start={viewing} onClose={() => setViewing(null)} /> : null}
-      <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
-        <h3 style={{ margin: 0, fontSize: 18 }}>{pkg.name}</h3>
-        <strong style={{ color: "var(--primary)", whiteSpace: "nowrap" }}>{peso(pkg.price)}</strong>
-      </header>
-      {pkg.popupAvailable ? (
-        <small style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase" }}>
-          Also available at pop-up events
-        </small>
-      ) : null}
-      {pkg.description ? (
-        <p style={{ margin: 0, color: "var(--muted-foreground)", lineHeight: 1.55 }}>{pkg.description}</p>
-      ) : null}
-      {items.length > 0 ? (
-        <div style={{ display: "grid", gap: 5, fontSize: 14 }}>
-          <small style={{ fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase", color: "var(--muted-foreground)" }}>
-            What's included
-          </small>
-          {items.map((item) => (
-            <span key={item}>✓ {item}</span>
-          ))}
-        </div>
-      ) : null}
-      <div style={{ marginTop: 6 }}>
-        {pkg.serviceType === "event" ? (
-          <Button asChild>
-            <Link to="/book" search={{ package: pkg.id }}>
-              Book this package
-            </Link>
-          </Button>
-        ) : (
-          <Button asChild>
-            <a href={messengerUrl} target="_blank" rel="noreferrer">
-              <MessageCircle aria-hidden="true" className="size-4" />
-              Order on Messenger
-            </a>
-          </Button>
-        )}
+        ) : null}
       </div>
+
+      <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: 14, padding: "22px 22px 24px" }}>
+        <header style={{ display: "grid", gap: 6 }}>
+          <h3 style={{ margin: 0, fontSize: 19, lineHeight: 1.3 }}>{pkg.name}</h3>
+          <strong style={{ color: "var(--primary)", fontSize: 22 }}>{peso(pkg.price)}</strong>
+        </header>
+
+        {pkg.description ? (
+          <p
+            style={{
+              margin: 0,
+              color: "var(--muted-foreground)",
+              fontSize: 14,
+              lineHeight: 1.6,
+              display: "-webkit-box",
+              WebkitLineClamp: showAll ? "unset" : 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {pkg.description}
+          </p>
+        ) : null}
+
+        {items.length > 0 ? (
+          <div style={{ display: "grid", gap: 8, fontSize: 14, lineHeight: 1.45 }}>
+            {visibleItems.map((item) => (
+              <span key={item} style={{ display: "flex", gap: 8 }}>
+                <span aria-hidden="true" style={{ color: "var(--primary)" }}>✓</span>
+                {item}
+              </span>
+            ))}
+            {items.length > 3 ? (
+              <button
+                type="button"
+                onClick={() => setShowAll((value) => !value)}
+                aria-expanded={showAll}
+                style={{
+                  justifySelf: "start",
+                  padding: 0,
+                  border: 0,
+                  background: "none",
+                  cursor: "pointer",
+                  color: "var(--foreground)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: ".04em",
+                  textDecoration: "underline",
+                  textUnderlineOffset: 4,
+                }}
+              >
+                {showAll ? "Show less" : `Show all ${items.length} included`}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: "auto", paddingTop: 6 }}>
+          {pkg.serviceType === "event" ? (
+            <Button asChild className="w-full">
+              <Link to="/book" search={{ package: pkg.id }}>
+                Book this package
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild className="w-full">
+              <a href={messengerUrl} target="_blank" rel="noreferrer">
+                <MessageCircle aria-hidden="true" className="size-4" />
+                Order on Messenger
+              </a>
+            </Button>
+          )}
+        </div>
+      </div>
+      {viewing !== null ? <PhotoViewer pkg={pkg} start={viewing} onClose={() => setViewing(null)} /> : null}
     </article>
   );
 }
@@ -288,12 +355,12 @@ function PackagesPage() {
           ) : null}
 
           {groups.map((group) => (
-            <section key={group.key} id={group.key} style={{ scrollMarginTop: 90, marginTop: 36 }}>
+            <section key={group.key} id={group.key} style={{ scrollMarginTop: 90, marginTop: 64 }}>
               <h2 className="eyebrow" style={{ marginBottom: 6 }}>{group.label}</h2>
-              <p style={{ margin: "0 0 14px", color: "var(--muted-foreground)", fontSize: 14 }}>
+              <p style={{ margin: "0 0 24px", color: "var(--muted-foreground)", fontSize: 14 }}>
                 {group.kind === "event" ? "Booked for your event." : "Made to order."}
               </p>
-              <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))" }}>
+              <div style={CARD_GRID}>
                 {group.items.map((pkg) => (
                   <PackageCard key={pkg.id} pkg={pkg} messengerUrl={s.messengerUrl} />
                 ))}
@@ -302,9 +369,9 @@ function PackagesPage() {
           ))}
 
           {others.length > 0 ? (
-            <section id="other" style={{ scrollMarginTop: 90, marginTop: 36 }}>
-              <h2 className="eyebrow" style={{ marginBottom: 14 }}>{lineLabel(null)}</h2>
-              <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))" }}>
+            <section id="other" style={{ scrollMarginTop: 90, marginTop: 64 }}>
+              <h2 className="eyebrow" style={{ marginBottom: 24 }}>{lineLabel(null)}</h2>
+              <div style={CARD_GRID}>
                 {others.map((pkg) => (
                   <PackageCard key={pkg.id} pkg={pkg} messengerUrl={s.messengerUrl} />
                 ))}
