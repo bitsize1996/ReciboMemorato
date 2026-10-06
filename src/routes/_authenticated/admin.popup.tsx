@@ -91,6 +91,7 @@ function PopupSalesPage() {
         discount: 0,
         amount_paid: amountPaid,
         payment_method: method,
+        sale_type: "popup",
         payment_status: status,
         notes: "Pop-up pay-per-print",
       } as never)

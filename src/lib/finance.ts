@@ -168,3 +168,36 @@ export function businessExpenseTotals(expenses: BusinessExpenseLike[], range: { 
   }
   return { oneTime, recurring, total: oneTime + recurring };
 }
+
+export const SALE_TYPES = [
+  ["event", "Photobooth event"],
+  ["made_to_order", "Made to order"],
+  ["popup", "Pop-up"],
+  ["other", "Other"],
+] as const;
+
+export type SaleType = (typeof SALE_TYPES)[number][0];
+
+export const saleTypeLabel = (t: string | null | undefined) =>
+  SALE_TYPES.find(([key]) => key === t)?.[1] ?? "Photobooth event";
+
+/** The sale type a package belongs to. */
+export const saleTypeOfPackage = (serviceType: string | null | undefined): SaleType =>
+  serviceType === "made_to_order" ? "made_to_order" : serviceType === "popup_print" ? "popup" : "event";
+
+/** Sales, revenue and profit for each kind of sale, for the Overview and Reports. */
+export function salesByType(
+  rows: { sale_type?: string | null; totals: { netRevenue: number; profit: number } }[],
+) {
+  const map = new Map<string, { type: string; label: string; count: number; revenue: number; profit: number }>();
+  for (const [key, label] of SALE_TYPES) map.set(key, { type: key, label, count: 0, revenue: 0, profit: 0 });
+  for (const row of rows) {
+    const key = row.sale_type ?? "event";
+    const entry = map.get(key) ?? { type: key, label: saleTypeLabel(key), count: 0, revenue: 0, profit: 0 };
+    entry.count += 1;
+    entry.revenue += row.totals.netRevenue;
+    entry.profit += row.totals.profit;
+    map.set(key, entry);
+  }
+  return [...map.values()].filter((entry) => entry.count > 0);
+}

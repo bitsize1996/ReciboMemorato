@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, createFileRoute, useChildMatches, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAddons, useMaterials } from "@/lib/admin-data";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
+import { downloadInvoicePdf, invoiceDataFromSale } from "@/lib/invoice-pdf";
 import { saleExpensesFromPackage } from "@/lib/pricing";
 import { usePackages } from "@/lib/admin-data";
 import { siteSettingsQuery } from "@/lib/site.functions";
-import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel } from "@/lib/finance";
+import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel, saleTypeLabel } from "@/lib/finance";
 import { useServerFn } from "@tanstack/react-start";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
 
@@ -43,6 +44,7 @@ function SaleDetail() {
     },
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
+  const childMatches = useChildMatches();
   const materials = useMaterials();
   const allPackages = usePackages();
   const addonCatalog = useAddons();
@@ -55,10 +57,13 @@ function SaleDetail() {
   const syncFn = useServerFn(syncSaleToGoogle);
   const refresh = () => qc.invalidateQueries({ queryKey: ["biz"] });
 
+  // The invoice is a page inside this one. Without this line the address changed but the invoice never showed.
+  if (childMatches.length > 0) return <Outlet />;
   if (sale.isPending) return <div className="adm-page"><p>Loading…</p></div>;
   if (!sale.data) return <div className="adm-page"><p>Sale not found.</p><Link to="/admin/sales">Back to sales</Link></div>;
   const s = sale.data;
   const t = saleTotals(s);
+  const isEventSale = (s.sale_type ?? "event") === "event";
   const invoiceMsg = invoiceMessage(s as never, brandName(site.data), biz.data?.paymentInstructions ?? "");
   const mailUrl = gmailComposeUrl({
     from: biz.data?.email, to: s.customer_email ?? "", subject: invoiceMsg.subject, body: invoiceMsg.body,
@@ -151,9 +156,33 @@ function SaleDetail() {
   return (
     <div className="adm-page">
       <header className="adm-head">
-        <div><Link to="/admin/sales">← Sales</Link><h1>Sale {saleCode(s.sale_number)}</h1></div>
+        <div>
+          {(s.sale_type ?? "event") === "made_to_order" ? (
+            <Link to="/admin/sales/orders">← Made-to-order sales</Link>
+          ) : (s.sale_type ?? "event") === "popup" ? (
+            <Link to="/admin/popup">← Pop-up sales</Link>
+          ) : (
+            <Link to="/admin/sales/events">← Event bookings</Link>
+          )}
+          <h1>Sale {saleCode(s.sale_number)}</h1>
+        </div>
         <div className="adm-row">
-          <Link to="/admin/sales/$saleId/invoice" params={{ saleId: s.id }}><Button variant="outline">Invoice</Button></Link>
+          <Button asChild variant="outline">
+            <Link to="/admin/sales/$saleId/invoice" params={{ saleId: s.id }}>Invoice</Link>
+          </Button>
+          <Button
+            onClick={() =>
+              downloadInvoicePdf(
+                invoiceDataFromSale(s as never, {
+                  brand: [site.data?.brandLine1 ?? "RECIBO", site.data?.brandLine2 ?? "MEMORATO"].join(" "),
+                  tagline: (site.data?.brandSub ?? "by the bitsize sibs").toLowerCase(),
+                  paymentInstructions: biz.data?.paymentInstructions ?? "",
+                }),
+              )
+            }
+          >
+            Download invoice PDF
+          </Button>
           <Button asChild variant="outline"><a href={mailUrl} target="_blank" rel="noreferrer">Email invoice</a></Button>
           <Button variant="outline" onClick={async () => setMsg((await copyText(invoiceMsg.body)) ? "Invoice text copied. Paste it into Messenger or any chat." : "Could not copy automatically.")}>Copy invoice text</Button>
           <Button variant="outline" onClick={syncCal}>{s.gcal_event_id ? "Update Google Calendar" : "Add to Google Calendar"}</Button>
@@ -172,11 +201,12 @@ function SaleDetail() {
             <dt>Customer</dt><dd>{s.customer_name}</dd>
             <dt>Contact</dt><dd>{s.customer_contact ?? "—"}</dd>
             <dt>Email</dt><dd>{s.customer_email ?? "—"}</dd>
-            <dt>Event</dt><dd>{s.event_name ?? "—"}</dd>
+            <dt>Type</dt><dd>{saleTypeLabel(s.sale_type)}</dd>
+            {isEventSale || s.event_name ? <><dt>{isEventSale ? "Event" : "Pop-up"}</dt><dd>{s.event_name ?? "—"}</dd></> : null}
             {s.event_theme ? <><dt>Theme</dt><dd>{s.event_theme}</dd></> : null}
             {s.event_venue ? <><dt>Location</dt><dd>{s.event_venue}</dd></> : null}
-            <dt>Event date</dt><dd>{s.event_date ?? "—"}{s.event_time ? ` · ${s.event_time}` : ""}</dd>
-            <dt>Booking date</dt><dd>{s.booking_date}</dd>
+            {isEventSale ? <><dt>Event date</dt><dd>{s.event_date ?? "—"}{s.event_time ? ` · ${s.event_time}` : ""}</dd></> : null}
+            <dt>{isEventSale ? "Booking date" : "Date of sale"}</dt><dd>{s.booking_date}</dd>
             <dt>Package</dt><dd>{s.packages?.name ?? s.package_name_snapshot ?? "—"}</dd>
             <dt>Quantity</dt><dd>{s.quantity}</dd>
           </dl>

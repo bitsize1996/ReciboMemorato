@@ -25,9 +25,16 @@ const NAV_SECTIONS = [
     label: "Clients & bookings",
     items: [
       { to: "/admin/inquiries", label: "Inquiries" },
-      { to: "/admin/sales", label: "Sales" },
-      { to: "/admin/popup", label: "Pop-up sales" },
       { to: "/admin/calendar", label: "Calendar" },
+    ],
+  },
+  {
+    label: "Sales",
+    items: [
+      { to: "/admin/sales/events", label: "Event bookings" },
+      { to: "/admin/sales/orders", label: "Made-to-order sales" },
+      { to: "/admin/popup", label: "Pop-up sales" },
+      { to: "/admin/sales", label: "All sales", exact: true },
     ],
   },
   {

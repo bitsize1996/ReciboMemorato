@@ -55,6 +55,8 @@ interface SaleLike {
   payment_status: string;
   event_theme?: string | null;
   event_venue?: string | null;
+  booking_date?: string | null;
+  sale_type?: string | null;
   sale_addons?: { name_snapshot: string; quantity: unknown; total_price: unknown }[] | null;
 }
 
@@ -69,9 +71,13 @@ export function invoiceMessage(sale: SaleLike, brand: string, paymentInstruction
     "",
     `Here is your invoice ${saleCode(sale.sale_number)} from ${brand}.`,
     "",
-    sale.event_name ? `Event: ${sale.event_name}${when ? ` (${when})` : ""}` : when ? `Event date: ${when}` : "",
-    sale.event_theme ? `Theme: ${sale.event_theme}` : "",
-    sale.event_venue ? `Location: ${sale.event_venue}` : "",
+    ...((sale.sale_type ?? "event") === "event"
+      ? [
+          sale.event_name ? `Event: ${sale.event_name}${when ? ` (${when})` : ""}` : when ? `Event date: ${when}` : "",
+          sale.event_theme ? `Theme: ${sale.event_theme}` : "",
+          sale.event_venue ? `Location: ${sale.event_venue}` : "",
+        ]
+      : [sale.booking_date ? `Date of sale: ${sale.booking_date}` : ""]),
     `Package: ${sale.package_name_snapshot ?? "Photobooth service"}${n(sale.quantity) > 1 ? ` × ${n(sale.quantity)}` : ""} — ${peso(sale.selling_price)}`,
     ...(addons.length > 0
       ? ["Add-ons:", ...addons.map((a) => `  • ${a.name_snapshot}${n(a.quantity) > 1 ? ` × ${n(a.quantity)}` : ""} — ${peso(a.total_price)}`)]

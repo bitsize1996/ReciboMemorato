@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 
 import { Stat, useRange } from "@/components/admin/RangeFilter";
 import { useExpenses, useSales } from "@/lib/admin-data";
-import { businessExpenseTotals, inRange, margin, pct, peso, sumSales } from "@/lib/finance";
+import { businessExpenseTotals, inRange, margin, pct, peso, salesByType, sumSales } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/admin/reports")({
   head: () => ({ meta: [{ title: "Reports | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -100,6 +100,21 @@ function ReportsPage() {
             <Stat label="Net profit" value={peso(netProfit)} sub="after business expenses" />
             <Stat label="Net profit margin" value={pct(margin(netProfit, t.revenue))} />
           </div>
+          <section className="adm-card">
+            <h2>By type of sale</h2>
+            <table className="adm-table">
+              <thead><tr><th>Type</th><th>Sales</th><th>Revenue</th><th>Profit</th></tr></thead>
+              <tbody>
+                {salesByType(rows).map((entry) => (
+                  <tr key={entry.type}>
+                    <td>{entry.label}</td><td>{entry.count}</td><td>{peso(entry.revenue)}</td>
+                    <td className={entry.profit < 0 ? "adm-neg" : ""}>{peso(entry.profit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="adm-hint">Profit here is after materials and the operation costs of each sale, and before business expenses.</p>
+          </section>
           <section className="adm-card">
             <h2>By month</h2>
             <p className="adm-hint">Costs include business expenses; profit is what is left after them.</p>

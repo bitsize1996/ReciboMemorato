@@ -26,6 +26,7 @@ export function useSales() {
         event_venue?: string | null;
         event_id?: string | null;
         payment_method?: string | null;
+        sale_type?: string | null;
       };
       return ((result.data ?? []) as Row[]).map((s) => ({ ...s, totals: saleTotals(s) }));
     },

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { n, peso, saleCode, statusLabel } from "@/lib/finance";
+import { downloadInvoicePdf, invoiceDataFromSale } from "@/lib/invoice-pdf";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
 import { siteSettingsQuery } from "@/lib/site.functions";
 
@@ -44,6 +45,13 @@ function Invoice() {
   const unit = s.quantity ? n(s.selling_price) / s.quantity : n(s.selling_price);
   const payment = biz.data?.paymentInstructions ?? "";
   const message = invoiceMessage(s as never, brandName(site.data), payment);
+  const pdfData = invoiceDataFromSale(s as never, {
+    brand: [site.data?.brandLine1 ?? "RECIBO", site.data?.brandLine2 ?? "MEMORATO"].join(" "),
+    tagline: (site.data?.brandSub ?? "by the bitsize sibs").toLowerCase(),
+    paymentInstructions: payment,
+  });
+  const brandUpper = [site.data?.brandLine1 ?? "RECIBO", site.data?.brandLine2 ?? "MEMORATO"].join(" ");
+  const tagline = (site.data?.brandSub ?? "by the bitsize sibs").toLowerCase();
   const mailUrl = gmailComposeUrl({
     from: biz.data?.email, to: s.customer_email ?? "", subject: message.subject, body: message.body,
   });
@@ -60,22 +68,28 @@ function Invoice() {
           >
             Copy invoice text
           </Button>
-          <Button onClick={() => window.print()}>Print / Save as PDF</Button>
+          <Button
+            onClick={() =>
+              downloadInvoicePdf(invoiceDataFromSale(s as never, { brand: brandUpper, tagline, paymentInstructions: payment }))
+            }
+          >
+            Download PDF
+          </Button>
+          <Button variant="outline" onClick={() => window.print()}>Print</Button>
         </div>
       </div>
       {note ? <p className="adm-hint inv-noprint">{note}</p> : null}
       <article className="inv-sheet">
         <header className="inv-top">
-          <div><strong className="inv-brand">RECIBO MEMORATO</strong><div className="inv-muted">by the bitsize sibs</div></div>
+          <div><strong className="inv-brand">{brandUpper}</strong><div className="inv-muted">{tagline}</div></div>
           <div className="inv-right"><h1>INVOICE</h1><div>No. {saleCode(s.sale_number)}</div><div>Date: {new Date().toISOString().slice(0, 10)}</div></div>
         </header>
         <section className="inv-cols">
           <div><div className="inv-muted">Billed to</div><strong>{s.customer_name}</strong>
             {s.customer_contact && <div>{s.customer_contact}</div>}{s.customer_email && <div>{s.customer_email}</div>}</div>
-          <div><div className="inv-muted">Event</div><strong>{s.event_name ?? "—"}</strong>
-            <div>{s.event_date ?? "Date to be confirmed"}{s.event_time ? ` · ${s.event_time}` : ""}</div>
-            {s.event_theme ? <div>Theme: {s.event_theme}</div> : null}
-            {s.event_venue ? <div>Location: {s.event_venue}</div> : null}</div>
+          <div><div className="inv-muted">{pdfData.details.heading === "EVENT" ? "Event" : pdfData.details.heading === "POP-UP" ? "Pop-up" : "Date of sale"}</div>
+            <strong>{pdfData.details.title}</strong>
+            {pdfData.details.lines.map((line) => <div key={line}>{line}</div>)}</div>
         </section>
         <table className="inv-table">
           <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>

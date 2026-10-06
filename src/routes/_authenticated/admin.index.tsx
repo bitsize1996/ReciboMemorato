@@ -7,6 +7,7 @@ import {
   businessExpenseTotals,
   inRange,
   margin,
+  salesByType,
   pct,
   peso,
   saleCode,
@@ -55,6 +56,28 @@ function Overview() {
             <Stat label="This month's sales" value={peso(m.revenue)} />
             <Stat label="This month's net profit" value={peso(netProfitMonth)} sub={`after ${peso(businessMonth.total)} business expenses`} />
           </div>
+          <section className="adm-card" style={{ marginBottom: 16 }}>
+            <h2>Sales by type</h2>
+            {rows.length === 0 ? <p className="adm-empty">No sales yet.</p> : (
+              <table className="adm-table">
+                <thead><tr><th>Type</th><th>Sales</th><th>Revenue</th><th>Profit</th></tr></thead>
+                <tbody>
+                  {salesByType(rows).map((entry) => (
+                    <tr key={entry.type}>
+                      <td>
+                        <Link to={entry.type === "event" ? "/admin/sales/events" : entry.type === "made_to_order" ? "/admin/sales/orders" : entry.type === "popup" ? "/admin/popup" : "/admin/sales"}>
+                          {entry.label}
+                        </Link>
+                      </td>
+                      <td>{entry.count}</td><td>{peso(entry.revenue)}</td>
+                      <td className={entry.profit < 0 ? "adm-neg" : ""}>{peso(entry.profit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="adm-hint">Profit here is before business expenses such as rent.</p>
+          </section>
           {inquiries.data ? (
             <section className="adm-card">
               <h2>Inquiries</h2>
