@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAddons, useMaterials } from "@/lib/admin-data";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
+import { saleExpensesFromPackage } from "@/lib/pricing";
+import { usePackages } from "@/lib/admin-data";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel } from "@/lib/finance";
 import { useServerFn } from "@tanstack/react-start";
@@ -42,6 +44,7 @@ function SaleDetail() {
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
   const materials = useMaterials();
+  const allPackages = usePackages();
   const addonCatalog = useAddons();
   const [addonPick, setAddonPick] = useState<null | { addon_id: string; quantity: string }>(null);
   const biz = useBusinessInfo();
@@ -86,6 +89,21 @@ function SaleDetail() {
     });
     if (error) return setErr(error.message);
     setMat(null); setErr(null); refresh();
+  }
+
+  async function addPackageCosts() {
+    const pkg = allPackages.data?.find((x) => x.id === s.package_id);
+    if (!pkg) return;
+    const rows = saleExpensesFromPackage(pkg as never, n(s.quantity) || 1, n(s.selling_price));
+    if (rows.length === 0) return;
+    const { error } = await supabase.from("sale_expenses").insert(
+      rows.map((x) => ({
+        sale_id: s.id, description: x.description, category: x.category, amount: x.amount,
+        expense_date: s.event_date ?? s.booking_date, notes: "From package",
+      })) as never,
+    );
+    if (error) return setErr(error.message);
+    setErr(null); refresh();
   }
 
   async function addAddon(e: React.FormEvent) {
@@ -254,7 +272,7 @@ function SaleDetail() {
       </section>
 
       <section className="adm-card">
-        <div className="adm-head"><h2>Other expenses</h2>
+        <div className="adm-head"><h2>Operation costs &amp; other expenses</h2>
           <Button size="sm" onClick={() => setExp({ description: "", category: "Transportation", amount: "0", expense_date: new Date().toISOString().slice(0, 10), notes: "" })}>+ Add expense</Button>
         </div>
         {exp && (
@@ -268,7 +286,7 @@ function SaleDetail() {
             <div className="adm-row"><Button type="submit">Save expense</Button><Button type="button" variant="outline" onClick={() => setExp(null)}>Cancel</Button></div>
           </form>
         )}
-        {!s.sale_expenses.length ? <p className="adm-empty">No other expenses recorded.</p> : (
+        {!s.sale_expenses.length ? <p className="adm-empty">No operation costs or expenses recorded yet.</p> : (
           <table className="adm-table">
             <thead><tr><th>Expense</th><th>Category</th><th>Date</th><th>Amount</th><th /></tr></thead>
             <tbody>{s.sale_expenses.map((x) => (
@@ -277,7 +295,20 @@ function SaleDetail() {
             ))}</tbody>
           </table>
         )}
-        <p><strong>Total other expenses: {peso(t.expenses)}</strong></p>
+        {(() => {
+          const pkg = allPackages.data?.find((x) => x.id === s.package_id);
+          const fromPackage = pkg ? saleExpensesFromPackage(pkg as never, n(s.quantity) || 1, n(s.selling_price)) : [];
+          const alreadyAdded = s.sale_expenses.some((x) => (x.notes ?? "").startsWith("From package"));
+          return fromPackage.length > 0 && !alreadyAdded ? (
+            <div style={{ margin: "8px 0" }}>
+              <Button type="button" size="sm" variant="outline" onClick={addPackageCosts}>
+                Add this package's operation costs ({peso(fromPackage.reduce((a, x) => a + x.amount, 0))})
+              </Button>
+              <p className="adm-hint">Adds {fromPackage.map((x) => x.description).join(", ")} from the package, so they count as expenses on this sale.</p>
+            </div>
+          ) : null;
+        })()}
+        <p><strong>Total operation costs &amp; expenses: {peso(t.expenses)}</strong></p>
       </section>
 
       <section className="adm-card">
@@ -297,7 +328,7 @@ function SaleDetail() {
             </div>
             <p className="adm-hint">
               <span style={{ color: "#b7791f" }}>■</span> Materials &nbsp;
-              <span style={{ color: "#2b6cb0" }}>■</span> Other expenses &nbsp;
+              <span style={{ color: "#2b6cb0" }}>■</span> Operation costs (staff…) &nbsp;
               <span style={{ color: "#2f855a" }}>■</span> Profit
             </p>
             <table className="adm-table">
@@ -308,7 +339,7 @@ function SaleDetail() {
                 {s.sale_materials.map((m) => (
                   <tr key={m.id}><td>&nbsp;&nbsp;↳ {m.material_name_snapshot} ({n(m.quantity)} × {peso(m.unit_cost_snapshot)})</td><td>{peso(m.total_cost)}</td><td>{share(n(m.total_cost)).toFixed(1)}%</td></tr>
                 ))}
-                <tr><td><strong>Other expenses</strong></td><td>{peso(t.expenses)}</td><td>{share(t.expenses).toFixed(1)}%</td></tr>
+                <tr><td><strong>Operation costs &amp; expenses</strong></td><td>{peso(t.expenses)}</td><td>{share(t.expenses).toFixed(1)}%</td></tr>
                 {Object.entries(expenseByCategory).map(([category, amount]) => (
                   <tr key={category}><td>&nbsp;&nbsp;↳ {category}</td><td>{peso(amount)}</td><td>{share(amount).toFixed(1)}%</td></tr>
                 ))}
@@ -324,7 +355,7 @@ function SaleDetail() {
         <dl className="adm-dl">
           <dt>Net revenue</dt><dd>{peso(t.netRevenue)}</dd>
           <dt>Less materials</dt><dd>− {peso(t.materials)}</dd>
-          <dt>Less other expenses</dt><dd>− {peso(t.expenses)}</dd>
+          <dt>Less operation costs &amp; expenses</dt><dd>− {peso(t.expenses)}</dd>
           <dt>Total costs</dt><dd>{peso(t.totalCost)}</dd>
           <dt><strong>Net profit</strong></dt><dd className={t.profit < 0 ? "adm-neg" : ""}><strong>{peso(t.profit)}</strong></dd>
           <dt>Profit margin</dt><dd>{pct(t.margin)}</dd>

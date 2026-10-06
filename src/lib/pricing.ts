@@ -109,3 +109,40 @@ export function opsFromSaved(saved: unknown, legacyTotal: unknown): OpCost[] {
   const legacy = num(legacyTotal);
   return legacy > 0 ? [{ label: "Other costs", amount: String(legacy), percent: false }] : [];
 }
+
+/** Staff, transport and other operation costs are filed under the matching expense category. */
+export function expenseCategoryFor(label: string): string {
+  const l = label.toLowerCase();
+  if (/(labor|labour|salary|salaries|wage|staff|crew|operator|attendant|manpower)/.test(l)) return "Labor";
+  if (/(transport|fuel|gas|gasoline|travel|vehicle|grab)/.test(l)) return "Transportation";
+  if (/(delivery|courier|lalamove)/.test(l)) return "Delivery";
+  if (/(electric|power|utilit|wifi|internet)/.test(l)) return "Utilities";
+  return "Operations";
+}
+
+export interface SaleExpenseDraft {
+  category: string;
+  description: string;
+  amount: number;
+}
+
+/**
+ * A package's operation costs for a sale: fixed amounts are multiplied by how many
+ * were sold (like the materials), and percent costs are taken from the sale total.
+ */
+export function saleExpensesFromPackage(
+  pkg: { operation_costs?: unknown; estimated_other_costs?: unknown },
+  quantity: number,
+  saleTotal: number,
+): SaleExpenseDraft[] {
+  const qty = quantity > 0 ? quantity : 1;
+  const rows: SaleExpenseDraft[] = [];
+  for (const op of opsFromSaved(pkg.operation_costs, pkg.estimated_other_costs)) {
+    const typed = num(op.amount);
+    const amount = Math.round((op.percent ? (typed / 100) * saleTotal : typed * qty) * 100) / 100;
+    if (amount <= 0) continue;
+    const description = op.label.trim() || "Operation cost";
+    rows.push({ category: expenseCategoryFor(description), description, amount });
+  }
+  return rows;
+}

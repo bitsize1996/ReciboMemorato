@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMaterials, usePackages, useSales, type SaleRow } from "@/lib/admin-data";
 import { PAYMENT_STATUSES, inRange, n, peso, saleCode, statusLabel, type PaymentStatus } from "@/lib/finance";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
+import { expenseCategoryFor, saleExpensesFromPackage } from "@/lib/pricing";
 
 export const Route = createFileRoute("/_authenticated/admin/sales/")({
   head: () => ({ meta: [{ title: "Sales | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -95,6 +96,7 @@ function SalesPage() {
 }
 
 type Line = { material_id: string; name: string; quantity: string; unit_cost: string };
+type OpLine = { category: string; description: string; amount: string };
 
 function SaleForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
@@ -107,6 +109,7 @@ function SaleForm({ onDone }: { onDone: () => void }) {
     selling_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "",
   });
   const [lines, setLines] = useState<Line[]>([]);
+  const [opLines, setOpLines] = useState<OpLine[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -115,6 +118,13 @@ function SaleForm({ onDone }: { onDone: () => void }) {
     const p = packages.data?.find((x) => x.id === id);
     const qty = n(f.quantity) || 1;
     setF((prev) => ({ ...prev, package_id: id, selling_price: p ? String(n(p.selling_price) * qty) : prev.selling_price }));
+    setOpLines(
+      p
+        ? saleExpensesFromPackage(p as never, qty, n(p.selling_price) * qty).map((x) => ({
+            category: x.category, description: x.description, amount: String(x.amount),
+          }))
+        : [],
+    );
     setLines(p ? p.package_materials.map((pm) => ({
       material_id: pm.material_id, name: pm.materials?.name ?? "Material",
       quantity: String(n(pm.quantity) * qty), unit_cost: String(pm.materials?.current_unit_cost ?? 0),
@@ -145,6 +155,14 @@ function SaleForm({ onDone }: { onDone: () => void }) {
         quantity: n(l.quantity), unit_cost_snapshot: n(l.unit_cost),
       })));
       if (e2) { setBusy(false); return setErr(e2.message); }
+    }
+    const validOps = opLines.filter((x) => x.description.trim() && n(x.amount) > 0);
+    if (validOps.length) {
+      const { error: e3 } = await supabase.from("sale_expenses").insert(validOps.map((x) => ({
+        sale_id: data.id, description: x.description.trim(), category: x.category || "Operations",
+        amount: n(x.amount), expense_date: f.event_date || f.booking_date, notes: "From package",
+      })) as never);
+      if (e3) { setBusy(false); return setErr(e3.message); }
     }
     if (f.event_date) await syncSaleToGoogle({ data: { saleId: data.id } }).catch(() => null);
     qc.invalidateQueries({ queryKey: ["biz"] });
@@ -210,9 +228,23 @@ function SaleForm({ onDone }: { onDone: () => void }) {
         <Button type="button" variant="outline" size="sm" onClick={() => setLines([...lines, { material_id: "", name: "", quantity: "1", unit_cost: "0" }])}>+ Add material</Button>
         <p><strong>Total materials: {peso(matTotal)}</strong> · Net revenue: {peso(netRevenue)}</p>
       </div>
+      <div className="adm-wide">
+        <h3>Operation costs for this sale (staff, transport…)</h3>
+        <p className="adm-hint">Filled in from the package. These count as expenses, so they are taken off before profit. You can change or remove any of them.</p>
+        {opLines.map((x, i) => (
+          <div className="adm-line" key={i}>
+            <input value={x.description} aria-label="Cost name" placeholder="e.g. Staff salary" onChange={(e) => setOpLines(opLines.map((y, j) => j === i ? { ...y, description: e.target.value, category: expenseCategoryFor(e.target.value) } : y))} />
+            <input type="number" step="0.01" min="0" value={x.amount} aria-label="Amount" onChange={(e) => setOpLines(opLines.map((y, j) => j === i ? { ...y, amount: e.target.value } : y))} />
+            <span>{x.category}</span>
+            <button type="button" onClick={() => setOpLines(opLines.filter((_, j) => j !== i))}>Remove</button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpLines([...opLines, { category: "Labor", description: "", amount: "0" }])}>+ Add operation cost</Button>
+        <p><strong>Total operation costs: {peso(opLines.reduce((a, x) => a + n(x.amount), 0))}</strong></p>
+      </div>
       <label className="adm-wide">Notes<textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} /></label>
       <div className="adm-row"><Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save sale"}</Button><Button type="button" variant="outline" onClick={onDone}>Cancel</Button></div>
-      <p className="adm-hint adm-wide">Add other expenses (transport, staff…) on the sale page after saving.</p>
+      <p className="adm-hint adm-wide">You can add more expenses on the sale page after saving.</p>
     </form>
   );
 }

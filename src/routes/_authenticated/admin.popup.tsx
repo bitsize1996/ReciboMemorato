@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePackages, useSales } from "@/lib/admin-data";
 import { adminListEvents } from "@/lib/events.functions";
 import { n, peso } from "@/lib/finance";
+import { saleExpensesFromPackage } from "@/lib/pricing";
 
 export const Route = createFileRoute("/_authenticated/admin/popup")({
   head: () => ({
@@ -113,6 +114,16 @@ function PopupSalesPage() {
         setBusy(false);
         return setError(materialError.message);
       }
+    }
+    // Staff and other operation costs per print, filed as expenses of this sale.
+    const expenses = saleExpensesFromPackage(product as never, qty, total);
+    if (expenses.length > 0) {
+      await supabase.from("sale_expenses").insert(
+        expenses.map((x) => ({
+          sale_id: data.id, description: x.description, category: x.category,
+          amount: x.amount, expense_date: date, notes: "From package",
+        })) as never,
+      );
     }
     setBusy(false);
     setMessage(`Recorded ${qty} print${qty === 1 ? "" : "s"} · ${peso(total)}${change > 0 ? ` (change ${peso(change)})` : ""}`);
@@ -297,7 +308,7 @@ function PopupSalesPage() {
       <div className="adm-stats" style={{ margin: "16px 0" }}>
         <Stat label={`Prints on ${date}`} value={String(dayTotals.prints)} sub={`${daySales.length} sale${daySales.length === 1 ? "" : "s"}`} />
         <Stat label="Sales" value={peso(dayTotals.revenue)} sub={`Cash ${peso(dayTotals.cash)} · GCash ${peso(dayTotals.gcash)}`} />
-        <Stat label="Cost of materials" value={peso(dayTotals.cost)} />
+        <Stat label="Materials & operation costs" value={peso(dayTotals.cost)} />
         <Stat label="Profit" value={peso(dayTotals.profit)} />
       </div>
 

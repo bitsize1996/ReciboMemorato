@@ -6,6 +6,7 @@ import { Stat } from "@/components/admin/RangeFilter";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAddons, usePackages, useSales } from "@/lib/admin-data";
+import { saleExpensesFromPackage } from "@/lib/pricing";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
 import { n, peso, saleCode } from "@/lib/finance";
 import { siteSettingsQuery } from "@/lib/site.functions";
@@ -322,6 +323,17 @@ function Detail({ row }: { row: InquiryRow }) {
           unit_cost_snapshot: n(pm.materials?.current_unit_cost ?? 0),
         })),
       );
+    }
+    if (pkg) {
+      const expenses = saleExpensesFromPackage(pkg as never, 1, price);
+      if (expenses.length > 0) {
+        await supabase.from("sale_expenses").insert(
+          expenses.map((x) => ({
+            sale_id: data.id, description: x.description, category: x.category, amount: x.amount,
+            expense_date: row.event_date ?? new Date().toISOString().slice(0, 10), notes: "From package",
+          })) as never,
+        );
+      }
     }
     if (chosenAddons.length > 0) {
       await (supabase as any).from("sale_addons").insert(
