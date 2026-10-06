@@ -41,6 +41,9 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
           .eq("active", true)
           .order("selling_price", { ascending: true });
       const loadPackages = async () => {
+        // Event services you chose to show on the website; fall back if a column isn't there yet.
+        const shown = await packageQuery().eq("service_type", "event").eq("show_on_website", true);
+        if (!shown.error) return shown;
         const filtered = await packageQuery().eq("service_type", "event");
         return filtered.error ? await packageQuery() : filtered;
       };

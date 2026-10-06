@@ -21,10 +21,10 @@ type Form = {
   id?: string; name: string; description: string; selling_price: string; estimated_other_costs: string;
   included_services: string; notes: string; active: boolean; lines: Line[];
   service_type: string; popup_available: boolean;
-  ops: OpCost[]; margin_mode: MarginMode; target_margin: string; round_to: string; product_line: string;
+  ops: OpCost[]; margin_mode: MarginMode; target_margin: string; round_to: string; product_line: string; show_on_website: boolean;
 };
 const OP_SUGGESTIONS = ["Labor", "Transport", "Electricity", "Equipment wear", "Packaging", "Payment fee", "Marketing", "Rent share"];
-const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0", product_line: "" };
+const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0", product_line: "", show_on_website: true };
 
 interface PhotoRow { id: string; image_url: string; caption: string | null; sort_order: number }
 
@@ -289,6 +289,7 @@ function PackagesPage() {
       target_margin: form.target_margin === "" ? null : n(form.target_margin),
       margin_mode: form.margin_mode,
       product_line: form.product_line || null,
+      show_on_website: form.show_on_website,
     };
     const writePackage = (body: object) =>
       form.id
@@ -297,7 +298,7 @@ function PackagesPage() {
     let id = form.id;
     let { data: saved, error: saveError } = await writePackage({ ...payload, ...calculatorFields });
     // Older databases may not have the calculator columns yet; still save the package itself.
-    if (saveError && /operation_costs|target_margin|margin_mode|product_line/i.test(saveError.message)) {
+    if (saveError && /operation_costs|target_margin|margin_mode|product_line|show_on_website/i.test(saveError.message)) {
       ({ data: saved, error: saveError } = await writePackage(payload));
     }
     if (saveError) return setErr(saveError.message);
@@ -335,7 +336,7 @@ function PackagesPage() {
         <form className="adm-card adm-form" onSubmit={save}>
           <h2>{form.id ? "Edit package" : "New package"}</h2>
           <label>Package name<input required value={form.name} onChange={(e) => set("name", e.target.value)} /></label>
-          <label>Selling price (₱)<input type="number" step="0.01" min="0" value={form.selling_price} onChange={(e) => set("selling_price", e.target.value)} /></label>
+          <label>{form.service_type === "popup_print" ? "Price per print (₱)" : "Selling price (₱)"}<input type="number" step="0.01" min="0" value={form.selling_price} onChange={(e) => set("selling_price", e.target.value)} /></label>
           <label className="adm-wide">Description<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
           <label className="adm-wide">Included services<textarea value={form.included_services} onChange={(e) => set("included_services", e.target.value)} placeholder="e.g. 3 hours, 50 prints, all digital photos" /></label>
           <label>Which service is it for?
@@ -347,19 +348,29 @@ function PackagesPage() {
             </select>
           </label>
           <label>Type of service
-            <select value={form.service_type} onChange={(e) => set("service_type", e.target.value)}>
+            <select
+              value={form.service_type}
+              onChange={(e) => {
+                const type = e.target.value;
+                setForm((f) => (f ? { ...f, service_type: type, show_on_website: type === "popup_print" ? false : f.show_on_website } : f));
+              }}
+            >
               <option value="event">Event service (photobooth, booked for an event)</option>
               <option value="made_to_order">Made to order (Sintra board, Instax prints…)</option>
+              <option value="popup_print">Pop-up pay-per-print (photobooth at pop-up events)</option>
             </select>
           </label>
           {form.service_type === "made_to_order" && (
             <label className="adm-check"><input type="checkbox" checked={form.popup_available} onChange={(e) => set("popup_available", e.target.checked)} /> Also sold at pop-up events</label>
           )}
-          <label className="adm-check"><input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} /> Active</label>
+          <label className="adm-check"><input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} /> Active (can be used in sales)</label>
+          <label className="adm-check"><input type="checkbox" checked={form.show_on_website} onChange={(e) => set("show_on_website", e.target.checked)} /> Show on the website (Packages page and booking form)</label>
           <div className="adm-wide" style={{ display: "grid", gap: 14, padding: 14, border: "1px solid var(--adm-line)", borderRadius: 8 }}>
             <h3 style={{ margin: 0 }}>Price calculator</h3>
             <p className="adm-hint" style={{ margin: 0 }}>
-              Add the materials this package uses and your operation costs. Choose the margin you want and the calculator suggests a selling price.
+              {form.service_type === "popup_print"
+                ? "Everything here is for ONE print: the materials one print uses and the cost of making it. The suggested price is the price per print."
+                : "Add the materials this package uses and your operation costs. Choose the margin you want and the calculator suggests a selling price."}
             </p>
 
             <div>
@@ -507,9 +518,16 @@ function PackagesPage() {
             return (
               <article className="adm-card" key={p.id}>
                 <h2>{p.name} {!p.active && <small>(inactive)</small>}</h2>
+                {(p as { show_on_website?: boolean }).show_on_website === false ? (
+                  <p className="adm-hint"><strong>Hidden from the website</strong> (still usable in sales)</p>
+                ) : null}
                 <p className="adm-hint">
                   {lineLabel((p as { product_line?: string | null }).product_line)} ·{" "}
-                  {(p as { service_type?: string }).service_type === "made_to_order" ? "Made to order" : "Event service"}
+                  {(p as { service_type?: string }).service_type === "made_to_order"
+                    ? "Made to order"
+                    : (p as { service_type?: string }).service_type === "popup_print"
+                      ? "Pop-up · pay per print"
+                      : "Event service"}
                   {(p as { popup_available?: boolean }).popup_available ? " · also at pop-ups" : ""}
                 </p>
                 {p.description && <p>{p.description}</p>}
@@ -552,6 +570,7 @@ function PackagesPage() {
                     target_margin: String((p as { target_margin?: number | null }).target_margin ?? "40"),
                     round_to: "0",
                     product_line: (p as { product_line?: string | null }).product_line ?? "",
+                    show_on_website: (p as { show_on_website?: boolean }).show_on_website !== false,
                     service_type: (p as { service_type?: string }).service_type ?? "event",
                     popup_available: Boolean((p as { popup_available?: boolean }).popup_available),
                     lines: p.package_materials.map((pm) => ({ material_id: pm.material_id, quantity: String(pm.quantity) })),

@@ -26,6 +26,7 @@ const NAV_SECTIONS = [
     items: [
       { to: "/admin/inquiries", label: "Inquiries" },
       { to: "/admin/sales", label: "Sales" },
+      { to: "/admin/popup", label: "Pop-up sales" },
       { to: "/admin/calendar", label: "Calendar" },
     ],
   },

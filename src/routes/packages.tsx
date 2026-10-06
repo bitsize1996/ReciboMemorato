@@ -155,6 +155,20 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
   const swiped = useRef(false);
   const total = pkg.photos.length;
   const photo = pkg.photos[current];
+  // The frame takes the shape of the cover photo (tall, square or wide, within limits),
+  // so tall boards and wide shots both look right.
+  const [ratio, setRatio] = useState(4 / 5);
+  const coverUrl = pkg.photos[0]?.url;
+  useEffect(() => {
+    if (!coverUrl) return;
+    const probe = new Image();
+    probe.onload = () => {
+      if (probe.naturalWidth && probe.naturalHeight) {
+        setRatio(Math.min(4 / 3, Math.max(3 / 4, probe.naturalWidth / probe.naturalHeight)));
+      }
+    };
+    probe.src = coverUrl;
+  }, [coverUrl]);
   const go = (step: number) => setCurrent((i) => (i + step + total) % total);
   const visibleItems = showAll ? items : items.slice(0, 3);
   const arrow: React.CSSProperties = {
@@ -187,8 +201,7 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
         <div
           style={{
             position: "relative",
-            // Portrait frame: boards, strips and prints are tall, so the whole photo fits without being cut off.
-            aspectRatio: "4 / 5",
+            aspectRatio: ratio,
             background: "color-mix(in oklab, var(--foreground) 6%, var(--card))",
             touchAction: "pan-y",
           }}
@@ -219,14 +232,22 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
                 setViewing(current);
               }}
               aria-label={`Enlarge photo ${current + 1} of ${total} for ${pkg.name}`}
-              style={{ display: "block", width: "100%", height: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
+              style={{ position: "relative", display: "block", width: "100%", height: "100%", overflow: "hidden", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
             >
+              {/* A soft, blurred copy fills any space around photos shaped differently from the frame. */}
+              <img
+                key={`bg-${photo.url}`}
+                src={photo.url}
+                alt=""
+                aria-hidden="true"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "blur(22px)", transform: "scale(1.25)", opacity: 0.55 }}
+              />
               <img
                 key={photo.url}
                 src={photo.url}
                 alt={photo.caption ?? `${pkg.name} sample ${current + 1}`}
                 decoding="async"
-                style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
+                style={{ position: "relative", display: "block", width: "100%", height: "100%", objectFit: "contain" }}
               />
             </button>
           ) : (
@@ -325,7 +346,10 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
       <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: 14, padding: "22px 22px 24px" }}>
         <header style={{ display: "grid", gap: 6 }}>
           <h3 style={{ margin: 0, fontSize: 19, lineHeight: 1.3 }}>{pkg.name}</h3>
-          <strong style={{ color: "var(--primary)", fontSize: 22 }}>{peso(pkg.price)}</strong>
+          <strong style={{ color: "var(--primary)", fontSize: 22 }}>
+            {peso(pkg.price)}
+            {pkg.serviceType === "popup_print" ? <small style={{ fontSize: 13, fontWeight: 400 }}> per print</small> : null}
+          </strong>
         </header>
 
         {pkg.description ? (
@@ -385,6 +409,13 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
               <Link to="/book" search={{ package: pkg.id }}>
                 Book this package
               </Link>
+            </Button>
+          ) : pkg.serviceType === "popup_print" ? (
+            <Button asChild variant="outline" className="w-full">
+              <a href={messengerUrl} target="_blank" rel="noreferrer">
+                <MessageCircle aria-hidden="true" className="size-4" />
+                Ask where our next pop-up is
+              </a>
             </Button>
           ) : (
             <Button asChild className="w-full">
@@ -450,7 +481,7 @@ function PackagesPage() {
             <section key={group.key} id={group.key} style={{ scrollMarginTop: 90, marginTop: 64 }}>
               <h2 className="eyebrow" style={{ marginBottom: 6 }}>{group.label}</h2>
               <p style={{ margin: "0 0 24px", color: "var(--muted-foreground)", fontSize: 14 }}>
-                {group.kind === "event" ? "Booked for your event." : "Made to order."}
+                {group.kind === "event" ? "Booked for your event." : group.kind === "popup" ? "Pay per print at our pop-up events." : "Made to order."}
               </p>
               <div style={CARD_GRID}>
                 {group.items.map((pkg) => (

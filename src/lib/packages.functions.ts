@@ -8,10 +8,15 @@ export const listPublicPackages = createServerFn({ method: "GET" }).handler(
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const db = supabaseAdmin as any;
-      const run = (fields: string) =>
-        db.from("packages").select(fields).eq("active", true).order("selling_price", { ascending: true });
-      let result = await run("id, name, description, included_services, selling_price, service_type, popup_available, product_line");
-      if (result.error) result = await run("id, name, description, included_services, selling_price");
+      const run = (fields: string, visibleOnly: boolean) => {
+        const query = db.from("packages").select(fields).eq("active", true).order("selling_price", { ascending: true });
+        return visibleOnly ? query.eq("show_on_website", true) : query;
+      };
+      const fields = "id, name, description, included_services, selling_price, service_type, popup_available, product_line";
+      // Newer columns only exist after their database setup, so fall back step by step.
+      let result = await run(fields, true);
+      if (result.error) result = await run(fields, false);
+      if (result.error) result = await run("id, name, description, included_services, selling_price", false);
       if (result.error || !result.data) return [];
 
       // Sample photos (the table exists only after its database setup; no photos until then).
@@ -33,7 +38,8 @@ export const listPublicPackages = createServerFn({ method: "GET" }).handler(
         description: p.description ?? null,
         includedServices: p.included_services ?? null,
         price: Number(p.selling_price) || 0,
-        serviceType: p.service_type === "made_to_order" ? "made_to_order" : "event",
+        serviceType:
+          p.service_type === "made_to_order" ? "made_to_order" : p.service_type === "popup_print" ? "popup_print" : "event",
         productLine: p.product_line ?? null,
         popupAvailable: Boolean(p.popup_available),
         photos: photosByPackage.get(p.id) ?? [],
