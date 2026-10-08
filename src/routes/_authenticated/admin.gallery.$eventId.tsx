@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import { GalleryQr } from "@/components/admin/GalleryQr";
+
 import { Button } from "@/components/ui/button";
 import {
   adminGetEvent,
@@ -377,6 +379,8 @@ function ManageGalleryPage() {
           </>
         )}
       </section>
+
+      <GalleryQr slug={event.slug} name={event.name} published={event.published === true} />
 
       <section className="admin-panel">
         <h2>Event status</h2>
