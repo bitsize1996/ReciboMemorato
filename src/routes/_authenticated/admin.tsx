@@ -59,6 +59,8 @@ const NAV_SECTIONS = [
     label: "Website",
     items: [
       { to: "/admin/events", label: "Gallery" },
+      { to: "/admin/backdrops", label: "Backdrops" },
+      { to: "/admin/testimonials", label: "Reviews" },
       { to: "/admin/customize", label: "Customize" },
     ],
   },

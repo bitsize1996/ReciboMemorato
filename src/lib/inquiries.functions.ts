@@ -16,10 +16,18 @@ export interface BookingAddon {
   price: number;
 }
 
+export interface BookingBackdrop {
+  id: string;
+  name: string;
+  category: string | null;
+  imageUrl: string;
+}
+
 export interface BookingOptions {
   eventTypes: string[];
   packages: BookingPackage[];
   addons: BookingAddon[];
+  backdrops: BookingBackdrop[];
 }
 
 const DEFAULT_EVENT_TYPES = ["Birthday", "Wedding", "Debut", "Corporate event", "Christening"];
@@ -30,6 +38,7 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
     let eventTypes = DEFAULT_EVENT_TYPES;
     let packages: BookingPackage[] = [];
     let addons: BookingAddon[] = [];
+    let backdrops: BookingBackdrop[] = [];
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const db = supabaseAdmin as any;
@@ -47,7 +56,7 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
         const filtered = await packageQuery().eq("service_type", "event");
         return filtered.error ? await packageQuery() : filtered;
       };
-      const [cats, pkgs, adds] = await Promise.all([
+      const [cats, pkgs, adds, backs] = await Promise.all([
         db.from("event_categories").select("name, sort_order").order("sort_order", { ascending: true }),
         loadPackages(),
         db
@@ -56,7 +65,19 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
           .eq("active", true)
           .order("sort_order", { ascending: true })
           .order("name", { ascending: true }),
+        db
+          .from("backdrops")
+          .select("id, name, category, image_url")
+          .eq("active", true)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true }),
       ]);
+      backdrops = ((backs.error ? [] : backs.data ?? []) as any[]).map((b) => ({
+        id: b.id,
+        name: b.name,
+        category: b.category ?? null,
+        imageUrl: b.image_url,
+      }));
       const names = ((cats.data ?? []) as { name: string }[]).map((c) => c.name);
       if (names.length > 0) eventTypes = names;
       packages = ((pkgs.data ?? []) as any[]).map((p) => ({
@@ -75,7 +96,7 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
     } catch (err) {
       console.error("Failed to load booking options", err);
     }
-    return { eventTypes: [...eventTypes, "Other"], packages, addons };
+    return { eventTypes: [...eventTypes, "Other"], packages, addons, backdrops };
   },
 );
 
@@ -86,6 +107,7 @@ const schema = z.object({
   contactMethod: z.enum(["messenger", "call_text", "email"]),
   eventType: z.string().trim().max(60),
   theme: z.string().trim().max(120),
+  backdrop: z.string().trim().max(120).optional(),
   eventDate: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
   venue: z.string().trim().max(200),
   guests: z.union([z.literal(""), z.string().regex(/^\d{1,6}$/)]),
@@ -139,12 +161,23 @@ export const submitInquiry = createServerFn({ method: "POST" })
     };
     const insertInquiry = (body: Record<string, unknown>) =>
       db.from("inquiries").insert(body).select("id, inquiry_number").single();
-    let { data: row, error } = await insertInquiry({ ...payload, theme: data.theme || null });
-    if (error && /theme/i.test(error.message)) {
-      // The theme column only exists after its database setup; keep the theme in the notes until then.
+    let { data: row, error } = await insertInquiry({
+      ...payload,
+      theme: data.theme || null,
+      backdrop: data.backdrop || null,
+    });
+    if (error && /theme|backdrop/i.test(error.message)) {
+      // These columns only exist after their database setup; keep the details in the notes until then.
       ({ data: row, error } = await insertInquiry({
         ...payload,
-        message: [data.theme ? `Theme: ${data.theme}` : "", data.message].filter(Boolean).join("\n") || null,
+        message:
+          [
+            data.theme ? `Theme: ${data.theme}` : "",
+            data.backdrop ? `Preferred backdrop: ${data.backdrop}` : "",
+            data.message,
+          ]
+            .filter(Boolean)
+            .join("\n") || null,
       }));
     }
     if (!error && row && data.addons.length > 0) {

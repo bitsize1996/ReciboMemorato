@@ -40,6 +40,7 @@ function SaleDetail() {
         sale_addons?: { id: string; name_snapshot: string; unit_price_snapshot: number; quantity: number; total_price: number }[];
         event_theme?: string | null;
         event_venue?: string | null;
+        backdrop?: string | null;
       }) | null;
     },
   });
@@ -205,6 +206,7 @@ function SaleDetail() {
             {isEventSale || s.event_name ? <><dt>{isEventSale ? "Event" : "Pop-up"}</dt><dd>{s.event_name ?? "—"}</dd></> : null}
             {s.event_theme ? <><dt>Theme</dt><dd>{s.event_theme}</dd></> : null}
             {s.event_venue ? <><dt>Location</dt><dd>{s.event_venue}</dd></> : null}
+            {s.backdrop ? <><dt>Backdrop</dt><dd>{s.backdrop}</dd></> : null}
             {isEventSale ? <><dt>Event date</dt><dd>{s.event_date ?? "—"}{s.event_time ? ` · ${s.event_time}` : ""}</dd></> : null}
             <dt>{isEventSale ? "Booking date" : "Date of sale"}</dt><dd>{s.booking_date}</dd>
             <dt>Package</dt><dd>{s.packages?.name ?? s.package_name_snapshot ?? "—"}</dd>

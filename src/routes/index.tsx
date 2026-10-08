@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { EventCard } from "./memories.index";
 import { listPublishedEvents } from "@/lib/gallery.functions";
+import { stars } from "@/lib/testimonials";
+import { listTestimonials } from "@/lib/testimonials.functions";
 import { siteSettingsQuery } from "@/lib/site.functions";
 import { richText, type SiteSettings } from "@/lib/site-settings";
 import { normalizeHome, type SectionKey } from "@/lib/site-homepage";
@@ -27,6 +29,11 @@ import { SERVICE_CARD_LINES } from "@/lib/product-lines";
 const eventsQuery = queryOptions({
   queryKey: ["events"],
   queryFn: () => listPublishedEvents(),
+});
+
+const testimonialsQuery = queryOptions({
+  queryKey: ["testimonials"],
+  queryFn: () => listTestimonials(),
 });
 
 // Social pages shown in the footer.
@@ -64,6 +71,7 @@ export const Route = createFileRoute("/")({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(eventsQuery),
+      context.queryClient.ensureQueryData(testimonialsQuery),
       context.queryClient.ensureQueryData(siteSettingsQuery),
     ]),
   component: Index,
@@ -123,6 +131,9 @@ function MemoryVisual({ type, label, image }: { type: string; label: string; ima
 
 function Index() {
   const { data: events } = useSuspenseQuery(eventsQuery);
+  const { data: reviews } = useSuspenseQuery(testimonialsQuery);
+  // Featured reviews first; up to three on the homepage.
+  const homeReviews = [...reviews].sort((a, b) => Number(b.featured) - Number(a.featured)).slice(0, 3);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
   // Previously cached settings may predate the homepage-content field.
   const h = normalizeHome(s.homepage);
@@ -325,10 +336,54 @@ function Index() {
     <main id="top" className="overflow-hidden bg-background text-foreground">
       {h.sectionOrder.map((key) => h.hiddenSections.includes(key) ? null : <div className="contents" key={key}>{sections[key]}</div>)}
 
+      {homeReviews.length > 0 ? (
+        <section
+          aria-labelledby="home-reviews-title"
+          style={{ padding: "clamp(48px, 8vw, 96px) clamp(20px, 5vw, 76px)", maxWidth: 1440, margin: "0 auto" }}
+        >
+          <p className="eyebrow">Reviews</p>
+          <h2 id="home-reviews-title" style={{ margin: "6px 0 24px" }}>What our clients say</h2>
+          <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))" }}>
+            {homeReviews.map((review) => (
+              <figure
+                key={review.id}
+                style={{ margin: 0, display: "grid", gap: 12, alignContent: "start", padding: 22, border: "1px solid var(--border)", background: "var(--card)" }}
+              >
+                <div aria-label={`${review.rating} out of 5 stars`} style={{ color: "var(--primary)", letterSpacing: 2, fontSize: 18 }}>
+                  {stars(review.rating)}
+                </div>
+                <blockquote
+                  style={{
+                    margin: 0,
+                    lineHeight: 1.6,
+                    fontSize: 15,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 6,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  “{review.quote}”
+                </blockquote>
+                <figcaption style={{ fontSize: 14 }}>
+                  <strong>{review.name}</strong>
+                  {review.label ? <div style={{ color: "var(--muted-foreground)" }}>{review.label}</div> : null}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+          <p style={{ marginTop: 24 }}>
+            <Link to="/reviews" className="teaser-link">
+              Read all reviews <ArrowUpRight aria-hidden="true" />
+            </Link>
+          </p>
+        </section>
+      ) : null}
+
       <footer className="site-footer" id="contact">
         <BrandMark s={s} />
         <p>{h.footerDescription}</p>
-        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/packages">Packages</Link><Link to="/memories">Memory archive</Link><Link to="/proofs">Proof of orders</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
+        <nav aria-label="Footer navigation"><a href="#top">Home</a><a href="#services">Services</a><Link to="/packages">Packages</Link><Link to="/memories">Memory archive</Link><Link to="/proofs">Proof of orders</Link><Link to="/reviews">Reviews</Link><a href="#faqs">FAQs</a><Link to="/book">Book now</Link><a href={s.messengerUrl} target="_blank" rel="noreferrer">Contact</a><Link to="/auth">Admin login</Link></nav>
         <div className="flex items-center gap-4">
           {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
             <a key={href} href={href} className="footer-social" target="_blank" rel="noreferrer" aria-label={label}>

@@ -60,6 +60,7 @@ const EMPTY = {
   eventType: "",
   theme: "",
   eventDate: "",
+  backdrop: "",
   venue: "",
   guests: "",
   packageId: "",
@@ -104,6 +105,18 @@ function BookPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const today = new Date().toISOString().slice(0, 10);
+  // Steps are numbered in the order they appear, skipping the ones with nothing to show.
+  const hasBackdrops = options.backdrops.length > 0;
+  const step = (() => {
+    let next = 2;
+    const take = () => String(++next).padStart(2, "0");
+    return {
+      backdrop: hasBackdrops ? take() : "",
+      packages: options.packages.length > 0 ? take() : "",
+      addons: options.addons.length > 0 ? take() : "",
+      notes: take(),
+    };
+  })();
   const contactLabel =
     form.contactMethod === "messenger"
       ? "Your Facebook profile link or username *"
@@ -289,9 +302,82 @@ function BookPage() {
               />
             </label>
 
+            {hasBackdrops ? (
+              <>
+                <SectionTitle number={step.backdrop}>Pick a backdrop (optional)</SectionTitle>
+                <div
+                  className="admin-wide"
+                  style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 150px), 1fr))" }}
+                >
+                  {options.backdrops.map((backdrop) => {
+                    const selected = form.backdrop === backdrop.name;
+                    return (
+                      <label
+                        key={backdrop.id}
+                        style={{
+                          display: "grid",
+                          gap: 6,
+                          cursor: "pointer",
+                          padding: 6,
+                          border: `2px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+                          background: "var(--card)",
+                          textTransform: "none",
+                          fontFamily: "var(--font-sans)",
+                          fontSize: 13,
+                          color: "var(--foreground)",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="backdrop"
+                          checked={selected}
+                          onChange={() => set("backdrop", backdrop.name)}
+                          style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                        />
+                        <img
+                          src={backdrop.imageUrl}
+                          alt={backdrop.name}
+                          loading="lazy"
+                          style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }}
+                        />
+                        <span style={{ display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" }}>
+                          <strong>{backdrop.name}</strong>
+                          {selected ? <span aria-hidden="true" style={{ color: "var(--primary)" }}>✓</span> : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  <label
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      padding: 12,
+                      cursor: "pointer",
+                      border: `2px solid ${form.backdrop === "" ? "var(--primary)" : "var(--border)"}`,
+                      background: "var(--card)",
+                      textTransform: "none",
+                      fontFamily: "var(--font-sans)",
+                      fontSize: 13,
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="backdrop"
+                      checked={form.backdrop === ""}
+                      onChange={() => set("backdrop", "")}
+                      style={{ width: 16, height: 16, minHeight: 0 }}
+                    />
+                    <strong>No preference</strong>
+                  </label>
+                </div>
+              </>
+            ) : null}
+
             {options.packages.length > 0 ? (
               <>
-                <SectionTitle number="03">Choose a package</SectionTitle>
+                <SectionTitle number={step.packages}>Choose a package</SectionTitle>
                 <div
                   className="admin-wide"
                   style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}
@@ -375,7 +461,7 @@ function BookPage() {
 
             {options.addons.length > 0 ? (
               <>
-                <SectionTitle number="04">Add-ons (optional)</SectionTitle>
+                <SectionTitle number={step.addons}>Add-ons (optional)</SectionTitle>
                 <div className="admin-wide" style={{ display: "grid", gap: 10 }}>
                   {options.addons.map((addon) => {
                     const qty = addonQty[addon.id] ?? 0;
@@ -449,7 +535,7 @@ function BookPage() {
               </>
             ) : null}
 
-            <SectionTitle number="05">Anything else?</SectionTitle>
+            <SectionTitle number={step.notes}>Anything else?</SectionTitle>
             <label className="admin-wide">
               Notes for us
               <textarea

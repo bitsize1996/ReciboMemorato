@@ -107,6 +107,7 @@ export function SiteHeader() {
       <Link to="/packages" onClick={onClick} className={pageActive("/packages")}>Packages</Link>
       <Link to="/memories" onClick={onClick} className={pageActive("/memories")}>Memory archive</Link>
       <Link to="/proofs" onClick={onClick} className={pageActive("/proofs")}>Proof of orders</Link>
+      <Link to="/reviews" onClick={onClick} className={pageActive("/reviews")}>Reviews</Link>
       {shown("story") ? (
         <Link to="/" hash="story" onClick={onClick} className={hashActive("story")}>Our story</Link>
       ) : null}

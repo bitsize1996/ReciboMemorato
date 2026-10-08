@@ -173,7 +173,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   const packages = usePackages();
   const materials = useMaterials();
   const [f, setF] = useState({
-    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", event_date: "",
+    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", backdrop: "", event_date: "",
     booking_date: new Date().toISOString().slice(0, 10), package_id: "", quantity: "1",
     selling_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "", sale_type: (fixedType ?? "event") as SaleType,
   });
@@ -228,6 +228,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       event_name: isEvent || f.sale_type === "popup" ? f.event_name || null : null,
       event_theme: isEvent ? f.event_theme.trim() || null : null,
       event_venue: isEvent ? f.event_venue.trim() || null : null,
+      backdrop: isEvent ? f.backdrop.trim() || null : null,
       event_date: isEvent ? f.event_date || null : null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
       selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: n(f.amount_paid),
@@ -282,6 +283,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
           <label>Event name<input value={f.event_name} onChange={(e) => set("event_name", e.target.value)} /></label>
           <label>Theme<input value={f.event_theme} onChange={(e) => set("event_theme", e.target.value)} /></label>
           <label>Location / venue<input value={f.event_venue} onChange={(e) => set("event_venue", e.target.value)} /></label>
+          <label>Backdrop<input value={f.backdrop} placeholder="Optional" onChange={(e) => set("backdrop", e.target.value)} /></label>
           <label>Event date<input type="date" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} /></label>
           <label>Event start time<input type="time" value={f.event_time} onChange={(e) => set("event_time", e.target.value)} /></label>
         </>

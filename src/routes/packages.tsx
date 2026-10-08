@@ -5,9 +5,16 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { peso } from "@/lib/finance";
+import { listBackdrops } from "@/lib/backdrops.functions";
+import type { PublicBackdrop } from "@/lib/backdrops";
 import { listPublicPackages } from "@/lib/packages.functions";
 import { PRODUCT_LINES, lineLabel, type PublicPackage } from "@/lib/product-lines";
 import { siteSettingsQuery } from "@/lib/site.functions";
+
+const backdropsQuery = queryOptions({
+  queryKey: ["backdrops"],
+  queryFn: () => listBackdrops(),
+});
 
 const packagesQuery = queryOptions({
   queryKey: ["public-packages"],
@@ -33,6 +40,7 @@ export const Route = createFileRoute("/packages")({
   loader: ({ context }) =>
     Promise.all([
       context.queryClient.ensureQueryData(packagesQuery),
+      context.queryClient.ensureQueryData(backdropsQuery),
       context.queryClient.ensureQueryData(siteSettingsQuery),
     ]),
   component: PackagesPage,
@@ -432,7 +440,61 @@ function PackageCard({ pkg, messengerUrl }: { pkg: PublicPackage; messengerUrl: 
   );
 }
 
+/** Full-screen view of one backdrop, with arrows to move between them. */
+function BackdropViewer({ items, start, onClose }: { items: PublicBackdrop[]; start: number; onClose: () => void }) {
+  const [index, setIndex] = useState(start);
+  const total = items.length;
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowRight") setIndex((i) => (i + 1) % total);
+      if (event.key === "ArrowLeft") setIndex((i) => (i - 1 + total) % total);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, total]);
+  const item = items[index]!;
+  const control: React.CSSProperties = {
+    position: "absolute", top: "50%", transform: "translateY(-50%)", display: "grid", placeItems: "center",
+    width: 44, height: 44, border: "1px solid rgba(255,255,255,.7)", borderRadius: "50%",
+    background: "rgba(0,0,0,.45)", color: "#fff", cursor: "pointer",
+  };
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.name}
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 60, display: "grid", placeItems: "center", padding: 12, background: "rgba(0,0,0,.88)" }}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{ position: "relative", width: "min(94vw, 960px)", color: "#fff", textAlign: "center" }}>
+        <button type="button" onClick={onClose} aria-label="Close" style={{ ...control, top: 6, right: 6, left: "auto", transform: "none", zIndex: 2 }}>
+          <X className="size-5" aria-hidden="true" />
+        </button>
+        <img src={item.imageUrl} alt={item.name} style={{ display: "block", margin: "0 auto", maxWidth: "100%", maxHeight: "76svh", objectFit: "contain" }} />
+        {total > 1 ? (
+          <>
+            <button type="button" onClick={() => setIndex((i) => (i - 1 + total) % total)} aria-label="Previous backdrop" style={{ ...control, left: 6 }}>
+              <ChevronLeft className="size-5" aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => setIndex((i) => (i + 1) % total)} aria-label="Next backdrop" style={{ ...control, right: 6 }}>
+              <ChevronRight className="size-5" aria-hidden="true" />
+            </button>
+          </>
+        ) : null}
+        <p style={{ margin: "10px 0 2px", fontSize: 15 }}>
+          <strong>{item.name}</strong>
+          {item.category ? ` · ${item.category}` : ""}
+        </p>
+        <small style={{ opacity: 0.7 }}>{index + 1} / {total}</small>
+      </div>
+    </div>
+  );
+}
+
 function PackagesPage() {
+  const { data: backdrops } = useSuspenseQuery(backdropsQuery);
+  const [viewingBackdrop, setViewingBackdrop] = useState<number | null>(null);
   const { data: packages } = useSuspenseQuery(packagesQuery);
   const { data: s } = useSuspenseQuery(siteSettingsQuery);
 
@@ -467,13 +529,16 @@ function PackagesPage() {
         </div>
       ) : (
         <>
-          {groups.length > 1 ? (
+          {groups.length > 1 || backdrops.length > 0 ? (
             <nav className="category-tabs" aria-label="Jump to a service" style={{ flexWrap: "wrap" }}>
               {groups.map((group) => (
                 <a key={group.key} href={`#${group.key}`} style={{ padding: "10px 14px" }}>
                   {group.label}
                 </a>
               ))}
+              {backdrops.length > 0 ? (
+                <a href="#backdrops" style={{ padding: "10px 14px" }}>Backdrops</a>
+              ) : null}
             </nav>
           ) : null}
 
@@ -503,6 +568,46 @@ function PackagesPage() {
           ) : null}
         </>
       )}
+
+      {backdrops.length > 0 ? (
+        <section id="backdrops" style={{ scrollMarginTop: 90, marginTop: 64 }}>
+          <h2 className="eyebrow" style={{ marginBottom: 6 }}>Backdrops for our standard photobooth</h2>
+          <p style={{ margin: "0 0 24px", color: "var(--muted-foreground)", fontSize: 14 }}>
+            Pick your favorite when you book. Tap a photo to see it bigger.
+          </p>
+          <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))" }}>
+            {backdrops.map((backdrop, i) => (
+              <figure key={backdrop.id} style={{ margin: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setViewingBackdrop(i)}
+                  aria-label={`View the ${backdrop.name} backdrop`}
+                  style={{ display: "block", width: "100%", padding: 0, border: "1px solid var(--border)", background: "var(--card)", cursor: "zoom-in" }}
+                >
+                  <img
+                    src={backdrop.imageUrl}
+                    alt={backdrop.name}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ display: "block", width: "100%", aspectRatio: "4 / 3", objectFit: "cover" }}
+                  />
+                </button>
+                <figcaption style={{ padding: "8px 2px", fontSize: 14 }}>
+                  <strong>{backdrop.name}</strong>
+                  {backdrop.category ? (
+                    <div style={{ marginTop: 2, fontFamily: "var(--font-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--muted-foreground)" }}>
+                      {backdrop.category}
+                    </div>
+                  ) : null}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+          {viewingBackdrop !== null ? (
+            <BackdropViewer items={backdrops} start={viewingBackdrop} onClose={() => setViewingBackdrop(null)} />
+          ) : null}
+        </section>
+      ) : null}
 
       <p style={{ marginTop: 40 }}>
         <Button asChild size="lg" variant="outline">

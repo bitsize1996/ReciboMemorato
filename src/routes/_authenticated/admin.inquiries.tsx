@@ -296,6 +296,7 @@ function Detail({ row }: { row: InquiryRow }) {
         customer_email: row.email,
         event_name: `${row.event_type ?? "Event"} – ${row.name}`,
         event_theme: row.theme,
+        backdrop: row.backdrop,
         event_venue: row.venue,
         event_date: row.event_date,
         package_id: pkg?.id ?? null,
@@ -425,6 +426,11 @@ function Detail({ row }: { row: InquiryRow }) {
         {row.theme ? (
           <div>
             <strong>Theme:</strong> {row.theme}
+          </div>
+        ) : null}
+        {row.backdrop ? (
+          <div>
+            <strong>Preferred backdrop:</strong> {row.backdrop}
           </div>
         ) : null}
         {row.message ? (
