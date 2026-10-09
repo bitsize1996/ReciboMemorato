@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAddons, useMaterials } from "@/lib/admin-data";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
+import { agreementStatusLabel } from "@/lib/agreement";
 import { downloadInvoicePdf, invoiceDataFromSale } from "@/lib/invoice-pdf";
 import { saleExpensesFromPackage } from "@/lib/pricing";
 import { usePackages } from "@/lib/admin-data";
@@ -41,11 +42,19 @@ function SaleDetail() {
         event_theme?: string | null;
         event_venue?: string | null;
         backdrop?: string | null;
+        service_hours?: number | null;
       }) | null;
     },
   });
   const [exp, setExp] = useState<null | { description: string; category: string; amount: string; expense_date: string; notes: string }>(null);
   const childMatches = useChildMatches();
+  const agreementStatus = useQuery({
+    queryKey: ["biz", "agreement-status", saleId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("agreements").select("status").eq("sale_id", saleId).maybeSingle();
+      return error ? null : ((data?.status ?? null) as string | null);
+    },
+  });
   const materials = useMaterials();
   const allPackages = usePackages();
   const addonCatalog = useAddons();
@@ -171,6 +180,13 @@ function SaleDetail() {
           <Button asChild variant="outline">
             <Link to="/admin/sales/$saleId/invoice" params={{ saleId: s.id }}>Invoice</Link>
           </Button>
+          {isEventSale ? (
+            <Button asChild variant="outline">
+              <Link to="/admin/sales/$saleId/agreement" params={{ saleId: s.id }}>
+                Service agreement{agreementStatus.data ? ` · ${agreementStatusLabel(agreementStatus.data)}` : ""}
+              </Link>
+            </Button>
+          ) : null}
           <Button
             onClick={() =>
               downloadInvoicePdf(
@@ -208,6 +224,7 @@ function SaleDetail() {
             {s.event_venue ? <><dt>Location</dt><dd>{s.event_venue}</dd></> : null}
             {s.backdrop ? <><dt>Backdrop</dt><dd>{s.backdrop}</dd></> : null}
             {isEventSale ? <><dt>Event date</dt><dd>{s.event_date ?? "—"}{s.event_time ? ` · ${s.event_time}` : ""}</dd></> : null}
+            {isEventSale && n(s.service_hours) > 0 ? <><dt>Service hours</dt><dd>{n(s.service_hours)}</dd></> : null}
             <dt>{isEventSale ? "Booking date" : "Date of sale"}</dt><dd>{s.booking_date}</dd>
             <dt>Package</dt><dd>{s.packages?.name ?? s.package_name_snapshot ?? "—"}</dd>
             <dt>Quantity</dt><dd>{s.quantity}</dd>

@@ -278,6 +278,12 @@ function Detail({ row }: { row: InquiryRow }) {
     refreshAddons();
   }
 
+  // Hours of service: what the package includes plus any extra-hour add-ons they chose.
+  const addonCatalog = addons.data?.rows ?? [];
+  const serviceHours =
+    n((chosenPackage as { service_hours?: number | null } | undefined)?.service_hours) +
+    chosenAddons.reduce((sum, a) => sum + n(addonCatalog.find((x) => x.id === a.addon_id)?.extra_hours) * n(a.quantity), 0);
+
   const sameDay = (sales.data ?? []).filter(
     (s) => row.event_date && s.event_date === row.event_date && s.payment_status !== "cancelled",
   );
@@ -297,6 +303,8 @@ function Detail({ row }: { row: InquiryRow }) {
         event_name: `${row.event_type ?? "Event"} – ${row.name}`,
         event_theme: row.theme,
         backdrop: row.backdrop,
+        event_time: row.event_time,
+        service_hours: serviceHours > 0 ? serviceHours : null,
         event_venue: row.venue,
         event_date: row.event_date,
         package_id: pkg?.id ?? null,
@@ -431,6 +439,12 @@ function Detail({ row }: { row: InquiryRow }) {
         {row.backdrop ? (
           <div>
             <strong>Preferred backdrop:</strong> {row.backdrop}
+          </div>
+        ) : null}
+        {row.event_time || serviceHours > 0 ? (
+          <div>
+            <strong>Start time:</strong> {row.event_time || "not given"}
+            {serviceHours > 0 ? ` · ${serviceHours} hour${serviceHours === 1 ? "" : "s"} of service` : ""}
           </div>
         ) : null}
         {row.message ? (

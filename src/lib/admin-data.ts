@@ -27,6 +27,7 @@ export function useSales() {
         event_id?: string | null;
         payment_method?: string | null;
         sale_type?: string | null;
+        service_hours?: number | null;
       };
       return ((result.data ?? []) as Row[]).map((s) => ({ ...s, totals: saleTotals(s) }));
     },
@@ -95,6 +96,7 @@ export interface AddonRow {
   price: number;
   active: boolean;
   sort_order: number;
+  extra_hours?: number | null;
 }
 
 /** Add-ons you offer (empty until their database setup has been run). */

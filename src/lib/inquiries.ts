@@ -37,6 +37,8 @@ export interface InquiryRow {
   event_type: string | null;
   theme: string | null;
   backdrop: string | null;
+  event_time: string | null;
+  service_hours: number | null;
   event_date: string | null;
   venue: string | null;
   guests: number | null;

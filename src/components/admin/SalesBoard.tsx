@@ -173,7 +173,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   const packages = usePackages();
   const materials = useMaterials();
   const [f, setF] = useState({
-    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", backdrop: "", event_date: "",
+    customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", backdrop: "", service_hours: "", event_date: "",
     booking_date: new Date().toISOString().slice(0, 10), package_id: "", quantity: "1",
     selling_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "", sale_type: (fixedType ?? "event") as SaleType,
   });
@@ -199,7 +199,13 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   function pickPackage(id: string) {
     const p = packages.data?.find((x) => x.id === id);
     const qty = n(f.quantity) || 1;
-    setF((prev) => ({ ...prev, package_id: id, selling_price: p ? String(n(p.selling_price) * qty) : prev.selling_price }));
+    const packageHours = n((p as { service_hours?: number | null } | undefined)?.service_hours);
+    setF((prev) => ({
+      ...prev,
+      package_id: id,
+      selling_price: p ? String(n(p.selling_price) * qty) : prev.selling_price,
+      service_hours: packageHours > 0 ? String(packageHours) : prev.service_hours,
+    }));
     setOpLines(
       p
         ? saleExpensesFromPackage(p as never, qty, n(p.selling_price) * qty).map((x) => ({
@@ -229,6 +235,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       event_theme: isEvent ? f.event_theme.trim() || null : null,
       event_venue: isEvent ? f.event_venue.trim() || null : null,
       backdrop: isEvent ? f.backdrop.trim() || null : null,
+      service_hours: isEvent && n(f.service_hours) > 0 ? n(f.service_hours) : null,
       event_date: isEvent ? f.event_date || null : null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
       selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: n(f.amount_paid),
@@ -286,6 +293,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
           <label>Backdrop<input value={f.backdrop} placeholder="Optional" onChange={(e) => set("backdrop", e.target.value)} /></label>
           <label>Event date<input type="date" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} /></label>
           <label>Event start time<input type="time" value={f.event_time} onChange={(e) => set("event_time", e.target.value)} /></label>
+          <label>Hours of service<input type="number" step="0.5" min="0" value={f.service_hours} placeholder="From the package" onChange={(e) => set("service_hours", e.target.value)} /></label>
         </>
       )}
       {f.sale_type === "popup" && (

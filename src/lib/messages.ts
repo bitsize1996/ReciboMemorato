@@ -15,16 +15,22 @@ export function useBusinessInfo() {
   return useQuery({
     queryKey: ["biz", "business-info"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("business_info")
-        .select("contact_email, payment_instructions")
-        .eq("id", 1)
-        .maybeSingle();
-      if (error) return { ready: false, email: "", paymentInstructions: "" };
+      const run = (fields: string) =>
+        (supabase as any).from("business_info").select(fields).eq("id", 1).maybeSingle();
+      // The agreement columns only exist after their database setup, so fall back without them.
+      let result = await run("contact_email, payment_instructions, agreement_defaults, representative_name, signature_image");
+      if (result.error) result = await run("contact_email, payment_instructions");
+      if (result.error) {
+        return { ready: false, email: "", paymentInstructions: "", agreementDefaults: null as Record<string, unknown> | null, representativeName: "", signatureImage: "" };
+      }
+      const data = result.data;
       return {
         ready: true,
         email: (data?.contact_email ?? "") as string,
         paymentInstructions: (data?.payment_instructions ?? "") as string,
+        agreementDefaults: (data?.agreement_defaults ?? null) as Record<string, unknown> | null,
+        representativeName: (data?.representative_name ?? "") as string,
+        signatureImage: (data?.signature_image ?? "") as string,
       };
     },
   });

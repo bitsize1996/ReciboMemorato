@@ -60,6 +60,7 @@ const EMPTY = {
   eventType: "",
   theme: "",
   eventDate: "",
+  eventTime: "",
   backdrop: "",
   venue: "",
   guests: "",
@@ -291,6 +292,10 @@ function BookPage() {
                 value={form.eventDate}
                 onChange={(e) => set("eventDate", e.target.value)}
               />
+            </label>
+            <label>
+              Event start time
+              <input type="time" value={form.eventTime} onChange={(e) => set("eventTime", e.target.value)} />
             </label>
             <label>
               Expected number of guests

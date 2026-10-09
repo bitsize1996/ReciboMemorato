@@ -21,10 +21,10 @@ type Form = {
   id?: string; name: string; description: string; selling_price: string; estimated_other_costs: string;
   included_services: string; notes: string; active: boolean; lines: Line[];
   service_type: string; popup_available: boolean;
-  ops: OpCost[]; margin_mode: MarginMode; target_margin: string; round_to: string; product_line: string; show_on_website: boolean;
+  ops: OpCost[]; margin_mode: MarginMode; target_margin: string; round_to: string; product_line: string; show_on_website: boolean; service_hours: string;
 };
 const OP_SUGGESTIONS = ["Labor", "Transport", "Electricity", "Equipment wear", "Packaging", "Payment fee", "Marketing", "Rent share"];
-const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0", product_line: "", show_on_website: true };
+const EMPTY: Form = { name: "", description: "", selling_price: "0", estimated_other_costs: "0", included_services: "", notes: "", active: true, lines: [], service_type: "event", popup_available: false, ops: [], margin_mode: "margin", target_margin: "40", round_to: "0", product_line: "", show_on_website: true, service_hours: "" };
 
 interface PhotoRow { id: string; image_url: string; caption: string | null; sort_order: number }
 
@@ -140,8 +140,8 @@ function PackagePhotos({ packageId }: { packageId: string }) {
   );
 }
 
-type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean };
-const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true };
+type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean; extra_hours: string };
+const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true, extra_hours: "" };
 
 function AddonsSection() {
   const qc = useQueryClient();
@@ -157,6 +157,7 @@ function AddonsSection() {
     const payload = {
       name: form.name.trim(), description: form.description.trim() || null,
       price: n(form.price), sort_order: Math.round(n(form.sort_order)), active: form.active,
+      extra_hours: n(form.extra_hours) > 0 ? n(form.extra_hours) : null,
     };
     const table = (supabase as any).from("addons");
     const { error } = form.id ? await table.update(payload).eq("id", form.id) : await table.insert(payload);
@@ -192,7 +193,14 @@ function AddonsSection() {
           <label>Add-on name<input required value={form.name} placeholder="Extra hour, 20 extra prints…" onChange={(e) => set("name", e.target.value)} /></label>
           <label>Price (₱)<input type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
           <label className="adm-wide">What it includes<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
+          <label>Hours this add-on adds (for extra-hour add-ons)<input type="number" step="0.5" min="0" value={form.extra_hours} placeholder="Leave empty if it adds no time" onChange={(e) => set("extra_hours", e.target.value)} /></label>
           <label>Order on the form (lower shows first)<input type="number" value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
+          {form.service_type === "event" && (
+            <label>Hours of service included
+              <input type="number" step="0.5" min="0" value={form.service_hours} placeholder="e.g. 2" onChange={(e) => set("service_hours", e.target.value)} />
+              <small className="adm-hint">Used for the booking's service time and the service agreement.</small>
+            </label>
+          )}
           <label className="adm-check"><input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} /> Show on the booking form</label>
           <div className="adm-row"><Button type="submit">Save</Button><Button type="button" variant="outline" onClick={() => setForm(null)}>Cancel</Button></div>
         </form>
@@ -207,7 +215,7 @@ function AddonsSection() {
               <td>{peso(a.price)}</td>
               <td>{a.active ? "Yes" : "Hidden"}</td>
               <td className="adm-actions">
-                <button onClick={() => setForm({ id: a.id, name: a.name, description: a.description ?? "", price: String(a.price), sort_order: String(a.sort_order), active: a.active })}>Edit</button>
+                <button onClick={() => setForm({ id: a.id, name: a.name, description: a.description ?? "", price: String(a.price), sort_order: String(a.sort_order), active: a.active, extra_hours: a.extra_hours ? String(a.extra_hours) : "" })}>Edit</button>
                 <button onClick={() => remove(a.id)}>Delete</button>
               </td>
             </tr>
@@ -290,6 +298,7 @@ function PackagesPage() {
       margin_mode: form.margin_mode,
       product_line: form.product_line || null,
       show_on_website: form.show_on_website,
+      service_hours: n(form.service_hours) > 0 ? n(form.service_hours) : null,
     };
     const writePackage = (body: object) =>
       form.id
@@ -298,7 +307,7 @@ function PackagesPage() {
     let id = form.id;
     let { data: saved, error: saveError } = await writePackage({ ...payload, ...calculatorFields });
     // Older databases may not have the calculator columns yet; still save the package itself.
-    if (saveError && /operation_costs|target_margin|margin_mode|product_line|show_on_website/i.test(saveError.message)) {
+    if (saveError && /operation_costs|target_margin|margin_mode|product_line|show_on_website|service_hours/i.test(saveError.message)) {
       ({ data: saved, error: saveError } = await writePackage(payload));
     }
     if (saveError) return setErr(saveError.message);
@@ -571,6 +580,7 @@ function PackagesPage() {
                     round_to: "0",
                     product_line: (p as { product_line?: string | null }).product_line ?? "",
                     show_on_website: (p as { show_on_website?: boolean }).show_on_website !== false,
+                    service_hours: (p as { service_hours?: number | null }).service_hours ? String((p as { service_hours?: number | null }).service_hours) : "",
                     service_type: (p as { service_type?: string }).service_type ?? "event",
                     popup_available: Boolean((p as { popup_available?: boolean }).popup_available),
                     lines: p.package_materials.map((pm) => ({ material_id: pm.material_id, quantity: String(pm.quantity) })),

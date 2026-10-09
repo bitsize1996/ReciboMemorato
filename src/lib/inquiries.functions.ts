@@ -108,6 +108,7 @@ const schema = z.object({
   eventType: z.string().trim().max(60),
   theme: z.string().trim().max(120),
   backdrop: z.string().trim().max(120).optional(),
+  eventTime: z.string().trim().max(20).optional(),
   eventDate: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
   venue: z.string().trim().max(200),
   guests: z.union([z.literal(""), z.string().regex(/^\d{1,6}$/)]),
@@ -165,8 +166,9 @@ export const submitInquiry = createServerFn({ method: "POST" })
       ...payload,
       theme: data.theme || null,
       backdrop: data.backdrop || null,
+      event_time: data.eventTime || null,
     });
-    if (error && /theme|backdrop/i.test(error.message)) {
+    if (error && /theme|backdrop|event_time/i.test(error.message)) {
       // These columns only exist after their database setup; keep the details in the notes until then.
       ({ data: row, error } = await insertInquiry({
         ...payload,
@@ -174,6 +176,7 @@ export const submitInquiry = createServerFn({ method: "POST" })
           [
             data.theme ? `Theme: ${data.theme}` : "",
             data.backdrop ? `Preferred backdrop: ${data.backdrop}` : "",
+            data.eventTime ? `Start time: ${data.eventTime}` : "",
             data.message,
           ]
             .filter(Boolean)
