@@ -180,7 +180,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   const [f, setF] = useState({
     customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", backdrop: "", service_hours: "", event_date: "",
     booking_date: new Date().toISOString().slice(0, 10), package_id: "", quantity: "1",
-    selling_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "", sale_type: (fixedType ?? "event") as SaleType,
+    selling_price: "0", unit_price: "0", discount: "0", amount_paid: "0", payment_status: "unpaid" as PaymentStatus, notes: "", sale_type: (fixedType ?? "event") as SaleType,
   });
   const [lines, setLines] = useState<Line[]>([]);
   const [opLines, setOpLines] = useState<OpLine[]>([]);
@@ -196,17 +196,21 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
 
   function pickType(value: SaleType) {
     // A different kind of sale starts without a package from the other kind.
-    setF((prev) => ({ ...prev, sale_type: value, package_id: "", selling_price: "0" }));
+    setF((prev) => ({ ...prev, sale_type: value, package_id: "", unit_price: "0" }));
     setLines([]);
     setOpLines([]);
   }
 
-  /** Fills the price, materials and operation costs for a package and a number of items. */
-  function applyPackage(p: (typeof offered)[number] | undefined, qty: number) {
-    setF((prev) => ({ ...prev, selling_price: p ? String(n(p.selling_price) * qty) : prev.selling_price }));
+  /**
+   * Fills the price per item, materials and operation costs for a package and a number of items.
+   * `unitPrice` keeps a price per item you typed yourself; otherwise the package price is used.
+   */
+  function applyPackage(p: (typeof offered)[number] | undefined, qty: number, unitPrice?: number) {
+    const unit = unitPrice ?? n(p?.selling_price);
+    if (p && unitPrice === undefined) setF((prev) => ({ ...prev, unit_price: String(n(p.selling_price)) }));
     setOpLines(
       p
-        ? saleExpensesFromPackage(p as never, qty, n(p.selling_price) * qty).map((x) => ({
+        ? saleExpensesFromPackage(p as never, qty, unit * qty).map((x) => ({
             category: x.category, description: x.description, amount: String(x.amount),
           }))
         : [],
@@ -235,10 +239,13 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   function changeQuantity(value: string) {
     set("quantity", value);
     const p = packages.data?.find((x) => x.id === f.package_id);
-    if (p) applyPackage(p, Math.max(1, n(value) || 1));
+    if (p) applyPackage(p, Math.max(1, n(value) || 1), n(f.unit_price));
   }
 
-  const netRevenue = n(f.selling_price) - n(f.discount);
+  // The total is always the price per item times the quantity.
+  const qtyNow = Math.max(1, n(f.quantity) || 1);
+  const total = Math.round(n(f.unit_price) * qtyNow * 100) / 100;
+  const netRevenue = total - n(f.discount);
   const matTotal = lines.reduce((a, l) => a + n(l.quantity) * n(l.unit_cost), 0);
 
   async function save(e: React.FormEvent) {
@@ -246,7 +253,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     setBusy(true);
     const p = packages.data?.find((x) => x.id === f.package_id);
     // Keep the payment status and the amount paid telling the same story.
-    const netToPay = n(f.selling_price) - n(f.discount);
+    const netToPay = total - n(f.discount);
     let amountPaid = n(f.amount_paid);
     let paymentStatus: PaymentStatus = f.payment_status;
     if (paymentStatus === "fully_paid") amountPaid = Math.max(amountPaid, netToPay);
@@ -263,7 +270,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       service_hours: isEvent && n(f.service_hours) > 0 ? n(f.service_hours) : null,
       event_date: isEvent ? f.event_date || null : null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
-      selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: amountPaid,
+      selling_price: total, discount: n(f.discount), amount_paid: amountPaid,
       payment_status: paymentStatus, notes: f.notes || null,
     } as never).select("id").single();
     if (error) { setBusy(false); return setErr(error.message); }
@@ -335,7 +342,14 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
         <input type="number" min="1" value={f.quantity} onChange={(e) => changeQuantity(e.target.value)} />
         {f.package_id ? <small className="adm-hint">The price, materials and operation costs follow the quantity.</small> : null}
       </label>
-      <label>Selling price (₱)<input type="number" step="0.01" min="0" value={f.selling_price} onChange={(e) => set("selling_price", e.target.value)} /></label>
+      <label>Price per item (₱)
+        <input type="number" step="0.01" min="0" value={f.unit_price} onChange={(e) => set("unit_price", e.target.value)} />
+        {f.package_id ? <small className="adm-hint">From the package. Change it only for a special price.</small> : null}
+      </label>
+      <label>Total
+        <input readOnly value={`${peso(total)}${qtyNow > 1 ? `  (${peso(n(f.unit_price))} × ${qtyNow})` : ""}`} />
+        <small className="adm-hint">Worked out for you from the price per item and the quantity.</small>
+      </label>
       <label>Discount (₱)<input type="number" step="0.01" min="0" value={f.discount} onChange={(e) => set("discount", e.target.value)} /></label>
       <label>Amount paid (₱)<input type="number" step="0.01" min="0" value={f.amount_paid} onChange={(e) => set("amount_paid", e.target.value)} /></label>
       <label>Balance<input readOnly value={peso(netRevenue - n(f.amount_paid))} /></label>
@@ -346,7 +360,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
             setF((prev) => ({
               ...prev,
               payment_status: e.target.value as PaymentStatus,
-              amount_paid: e.target.value === "fully_paid" ? String(n(prev.selling_price) - n(prev.discount)) : prev.amount_paid,
+              amount_paid: e.target.value === "fully_paid" ? String(n(prev.unit_price) * Math.max(1, n(prev.quantity) || 1) - n(prev.discount)) : prev.amount_paid,
             }))
           }
         >

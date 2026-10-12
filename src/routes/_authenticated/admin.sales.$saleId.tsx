@@ -20,8 +20,8 @@ import { syncSaleToGoogle } from "@/lib/calendar.functions";
 type EditForm = {
   customer_name: string; customer_contact: string; customer_email: string; sale_type: string; booking_date: string;
   event_name: string; event_theme: string; event_venue: string; backdrop: string; event_date: string; event_time: string;
-  service_hours: string; package_id: string; quantity: string; selling_price: string; discount: string; notes: string;
-  reprice: boolean; rescale: boolean; resetFromPackage: boolean;
+  service_hours: string; package_id: string; quantity: string; unit_price: string; discount: string; notes: string;
+  rescale: boolean; resetFromPackage: boolean;
 };
 
 export const Route = createFileRoute("/_authenticated/admin/sales/$saleId")({
@@ -132,10 +132,9 @@ function SaleDetail() {
       service_hours: s.service_hours ? String(s.service_hours) : "",
       package_id: s.package_id ?? "",
       quantity: String(s.quantity ?? 1),
-      selling_price: String(s.selling_price ?? 0),
+      unit_price: String(Math.round((n(s.selling_price) / (n(s.quantity) || 1)) * 100) / 100),
       discount: String(s.discount ?? 0),
       notes: s.notes ?? "",
-      reprice: true,
       rescale: true,
       resetFromPackage: false,
     });
@@ -148,11 +147,13 @@ function SaleDetail() {
     const pkg = allPackages.data?.find((x) => x.id === edit.package_id);
     const packageChanged = (edit.package_id || null) !== (s.package_id || null);
     const reset = packageChanged && edit.resetFromPackage && Boolean(pkg);
+    // The total is the price per item times the quantity.
+    const editQty = Math.max(1, Math.round(n(edit.quantity)) || 1);
     const result = computeSaleEdit({
       old: s,
-      next: edit,
-      resetPackagePrice: reset && pkg ? n(pkg.selling_price) : null,
-      reprice: edit.reprice,
+      next: { quantity: editQty, selling_price: Math.round(n(edit.unit_price) * editQty * 100) / 100, discount: edit.discount },
+      resetPackagePrice: null,
+      reprice: false,
       addonsTotal: t.addons,
     });
     const oldQty = n(s.quantity) || 1;
@@ -372,7 +373,14 @@ function SaleDetail() {
           )}
           <label>{edit.sale_type === "event" ? "Booking date" : "Date of sale"}<input type="date" required value={edit.booking_date} onChange={(e) => setEdit({ ...edit, booking_date: e.target.value })} /></label>
           <label>Package
-            <select value={edit.package_id} onChange={(e) => setEdit({ ...edit, package_id: e.target.value })}>
+            <select
+              value={edit.package_id}
+              onChange={(e) => {
+                const next = allPackages.data?.find((p) => p.id === e.target.value);
+                // A different package brings its own price per item.
+                setEdit({ ...edit, package_id: e.target.value, unit_price: next ? String(n(next.selling_price)) : edit.unit_price });
+              }}
+            >
               <option value="">No package / custom</option>
               {(allPackages.data ?? []).filter((p) => p.active || p.id === s.package_id).map((p) => (
                 <option key={p.id} value={p.id}>{p.name} — {peso(p.selling_price)}</option>
@@ -380,16 +388,23 @@ function SaleDetail() {
             </select>
           </label>
           <label>Quantity<input type="number" min="1" step="1" value={edit.quantity} onChange={(e) => setEdit({ ...edit, quantity: e.target.value })} /></label>
-          <label>Price for the package (₱, total for the quantity)<input type="number" step="0.01" min="0" value={edit.selling_price} onChange={(e) => setEdit({ ...edit, selling_price: e.target.value })} /></label>
+          <label>Price per item (₱)<input type="number" step="0.01" min="0" value={edit.unit_price} onChange={(e) => setEdit({ ...edit, unit_price: e.target.value })} /></label>
+          <label>Total
+            <input
+              readOnly
+              value={(() => {
+                const q = Math.max(1, Math.round(n(edit.quantity)) || 1);
+                const total = Math.round(n(edit.unit_price) * q * 100) / 100;
+                return `${peso(total)}${q > 1 ? `  (${peso(n(edit.unit_price))} × ${q})` : ""}`;
+              })()}
+            />
+            <small className="adm-hint">Worked out for you from the price per item and the quantity.</small>
+          </label>
           <label>Discount (₱)<input type="number" step="0.01" min="0" value={edit.discount} onChange={(e) => setEdit({ ...edit, discount: e.target.value })} /></label>
           <label className="adm-wide">Notes<textarea value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></label>
 
           {(Math.max(1, Math.round(n(edit.quantity)) || 1) !== (n(s.quantity) || 1)) && (
             <div className="adm-wide" style={{ display: "grid", gap: 6 }}>
-              <label className="adm-check">
-                <input type="checkbox" checked={edit.reprice} onChange={(e) => setEdit({ ...edit, reprice: e.target.checked })} />
-                Change the price to match the new quantity (unless you typed a price above)
-              </label>
               <label className="adm-check">
                 <input type="checkbox" checked={edit.rescale} onChange={(e) => setEdit({ ...edit, rescale: e.target.checked })} />
                 Change the materials and package costs to match the new quantity
@@ -399,7 +414,7 @@ function SaleDetail() {
           {(edit.package_id || null) !== (s.package_id || null) && edit.package_id && (
             <label className="adm-check adm-wide">
               <input type="checkbox" checked={edit.resetFromPackage} onChange={(e) => setEdit({ ...edit, resetFromPackage: e.target.checked })} />
-              Replace the price, materials and package costs with the new package's
+              Replace the materials and package costs with the new package's
             </label>
           )}
           <p className="adm-hint adm-wide">
