@@ -9,12 +9,20 @@ import { useAddons, useMaterials } from "@/lib/admin-data";
 import { brandName, copyText, gmailComposeUrl, invoiceMessage, useBusinessInfo } from "@/lib/messages";
 import { agreementStatusLabel } from "@/lib/agreement";
 import { downloadInvoicePdf, invoiceDataFromSale } from "@/lib/invoice-pdf";
+import { computeSaleEdit } from "@/lib/sale-edit";
 import { saleExpensesFromPackage } from "@/lib/pricing";
 import { usePackages } from "@/lib/admin-data";
 import { siteSettingsQuery } from "@/lib/site.functions";
-import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel, saleTypeLabel } from "@/lib/finance";
+import { EXPENSE_CATEGORIES, PAYMENT_STATUSES, n, pct, peso, saleCode, saleTotals, statusLabel, saleTypeLabel, SALE_TYPES, saleTypeOfPackage } from "@/lib/finance";
 import { useServerFn } from "@tanstack/react-start";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
+
+type EditForm = {
+  customer_name: string; customer_contact: string; customer_email: string; sale_type: string; booking_date: string;
+  event_name: string; event_theme: string; event_venue: string; backdrop: string; event_date: string; event_time: string;
+  service_hours: string; package_id: string; quantity: string; selling_price: string; discount: string; notes: string;
+  reprice: boolean; rescale: boolean; resetFromPackage: boolean;
+};
 
 export const Route = createFileRoute("/_authenticated/admin/sales/$saleId")({
   head: () => ({ meta: [{ title: "Sale | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
@@ -62,6 +70,7 @@ function SaleDetail() {
   const biz = useBusinessInfo();
   const site = useQuery(siteSettingsQuery);
   const [mat, setMat] = useState<null | { material_id: string; quantity: string }>(null);
+  const [edit, setEdit] = useState<EditForm | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const syncFn = useServerFn(syncSaleToGoogle);
@@ -104,6 +113,131 @@ function SaleDetail() {
     });
     if (error) return setErr(error.message);
     setMat(null); setErr(null); refresh();
+  }
+
+  function startEdit() {
+    setErr(null);
+    setEdit({
+      customer_name: s.customer_name,
+      customer_contact: s.customer_contact ?? "",
+      customer_email: s.customer_email ?? "",
+      sale_type: ((s.sale_type ?? "event") as string),
+      booking_date: s.booking_date,
+      event_name: s.event_name ?? "",
+      event_theme: s.event_theme ?? "",
+      event_venue: s.event_venue ?? "",
+      backdrop: s.backdrop ?? "",
+      event_date: s.event_date ?? "",
+      event_time: s.event_time ?? "",
+      service_hours: s.service_hours ? String(s.service_hours) : "",
+      package_id: s.package_id ?? "",
+      quantity: String(s.quantity ?? 1),
+      selling_price: String(s.selling_price ?? 0),
+      discount: String(s.discount ?? 0),
+      notes: s.notes ?? "",
+      reprice: true,
+      rescale: true,
+      resetFromPackage: false,
+    });
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!edit) return;
+    setErr(null);
+    const pkg = allPackages.data?.find((x) => x.id === edit.package_id);
+    const packageChanged = (edit.package_id || null) !== (s.package_id || null);
+    const reset = packageChanged && edit.resetFromPackage && Boolean(pkg);
+    const result = computeSaleEdit({
+      old: s,
+      next: edit,
+      resetPackagePrice: reset && pkg ? n(pkg.selling_price) : null,
+      reprice: edit.reprice,
+      addonsTotal: t.addons,
+    });
+    const oldQty = n(s.quantity) || 1;
+    const newQty = result.quantity;
+    const price = result.price;
+
+    const isEvent = edit.sale_type === "event";
+    const isPopup = edit.sale_type === "popup";
+    const patch: Record<string, unknown> = {
+      customer_name: edit.customer_name.trim() || s.customer_name,
+      customer_contact: edit.customer_contact.trim() || null,
+      customer_email: edit.customer_email.trim() || null,
+      sale_type: edit.sale_type,
+      booking_date: edit.booking_date || s.booking_date,
+      package_id: edit.package_id || null,
+      package_name_snapshot: pkg ? pkg.name : packageChanged ? null : s.package_name_snapshot,
+      quantity: newQty,
+      selling_price: price,
+      discount: n(edit.discount),
+      notes: edit.notes.trim() || null,
+      event_name: isEvent || isPopup ? edit.event_name.trim() || null : null,
+      event_theme: isEvent ? edit.event_theme.trim() || null : null,
+      event_venue: isEvent ? edit.event_venue.trim() || null : null,
+      backdrop: isEvent ? edit.backdrop.trim() || null : null,
+      event_date: isEvent ? edit.event_date || null : null,
+      event_time: isEvent ? edit.event_time || null : null,
+      service_hours: isEvent && n(edit.service_hours) > 0 ? n(edit.service_hours) : null,
+    };
+
+    patch["payment_status"] = result.paymentStatus;
+
+    const { error } = await supabase.from("sales").update(patch as never).eq("id", s.id);
+    if (error) return setErr(error.message);
+
+    if (reset && pkg) {
+      // Start the materials and package costs again from the new package.
+      await supabase.from("sale_materials").delete().eq("sale_id", s.id);
+      await supabase.from("sale_expenses").delete().eq("sale_id", s.id).like("notes", "From package%");
+      if (pkg.package_materials.length > 0) {
+        await supabase.from("sale_materials").insert(
+          pkg.package_materials.map((pm) => ({
+            sale_id: s.id,
+            material_id: pm.material_id,
+            material_name_snapshot: pm.materials?.name ?? "Material",
+            quantity: n(pm.quantity) * newQty,
+            unit_cost_snapshot: n(pm.materials?.current_unit_cost ?? 0),
+          })),
+        );
+      }
+      const costs = saleExpensesFromPackage(pkg as never, newQty, price);
+      if (costs.length > 0) {
+        await supabase.from("sale_expenses").insert(
+          costs.map((x) => ({
+            sale_id: s.id, description: x.description, category: x.category, amount: x.amount,
+            expense_date: edit.event_date || edit.booking_date || s.booking_date, notes: "From package",
+          })) as never,
+        );
+      }
+    } else if (newQty !== oldQty && edit.rescale) {
+      const ratio = result.ratio;
+      await Promise.all([
+        ...s.sale_materials.map((m) =>
+          supabase.from("sale_materials").update({ quantity: Math.round(n(m.quantity) * ratio * 100) / 100 }).eq("id", m.id),
+        ),
+        ...s.sale_expenses
+          .filter((x) => (x.notes ?? "").startsWith("From package"))
+          .map((x) => supabase.from("sale_expenses").update({ amount: Math.round(n(x.amount) * ratio * 100) / 100 }).eq("id", x.id)),
+      ]);
+    }
+
+    const eventTouched =
+      isEvent &&
+      (edit.event_name !== (s.event_name ?? "") || edit.event_date !== (s.event_date ?? "") ||
+        edit.event_time !== (s.event_time ?? "") || edit.event_venue !== (s.event_venue ?? ""));
+    setEdit(null);
+    setMsg("Saved your changes.");
+    refresh();
+    if (eventTouched && s.gcal_event_id) void syncCal();
+  }
+
+  async function updateLine(table: "sale_materials" | "sale_expenses" | "sale_addons", id: string, values: Record<string, number>) {
+    const { error } = await supabase.from(table).update(values as never).eq("id", id);
+    if (error) return setErr(error.message);
+    setErr(null);
+    refresh();
   }
 
   async function addPackageCosts() {
@@ -211,9 +345,76 @@ function SaleDetail() {
       {biz.data?.ready && !biz.data.email ? (
         <p className="adm-hint">Tip: add your Recibo Memorato Gmail in <Link to="/admin/settings">Settings</Link> so "Email invoice" opens from the right account.</p>
       ) : null}
+      {edit && (
+        <form className="adm-card adm-form" onSubmit={saveEdit}>
+          <h2>Edit sale details</h2>
+          <label>Customer name<input required value={edit.customer_name} onChange={(e) => setEdit({ ...edit, customer_name: e.target.value })} /></label>
+          <label>Contact (phone or Messenger)<input value={edit.customer_contact} onChange={(e) => setEdit({ ...edit, customer_contact: e.target.value })} /></label>
+          <label>Email<input type="email" value={edit.customer_email} onChange={(e) => setEdit({ ...edit, customer_email: e.target.value })} /></label>
+          <label>Kind of sale
+            <select value={edit.sale_type} onChange={(e) => setEdit({ ...edit, sale_type: e.target.value })}>
+              {SALE_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </label>
+          {edit.sale_type === "event" && (
+            <>
+              <label>Event name<input value={edit.event_name} onChange={(e) => setEdit({ ...edit, event_name: e.target.value })} /></label>
+              <label>Theme<input value={edit.event_theme} onChange={(e) => setEdit({ ...edit, event_theme: e.target.value })} /></label>
+              <label>Location / venue<input value={edit.event_venue} onChange={(e) => setEdit({ ...edit, event_venue: e.target.value })} /></label>
+              <label>Backdrop<input value={edit.backdrop} onChange={(e) => setEdit({ ...edit, backdrop: e.target.value })} /></label>
+              <label>Event date<input type="date" value={edit.event_date} onChange={(e) => setEdit({ ...edit, event_date: e.target.value })} /></label>
+              <label>Event start time<input type="time" value={edit.event_time} onChange={(e) => setEdit({ ...edit, event_time: e.target.value })} /></label>
+              <label>Hours of service<input type="number" step="0.5" min="0" value={edit.service_hours} onChange={(e) => setEdit({ ...edit, service_hours: e.target.value })} /></label>
+            </>
+          )}
+          {edit.sale_type === "popup" && (
+            <label>Pop-up name<input value={edit.event_name} onChange={(e) => setEdit({ ...edit, event_name: e.target.value })} /></label>
+          )}
+          <label>{edit.sale_type === "event" ? "Booking date" : "Date of sale"}<input type="date" required value={edit.booking_date} onChange={(e) => setEdit({ ...edit, booking_date: e.target.value })} /></label>
+          <label>Package
+            <select value={edit.package_id} onChange={(e) => setEdit({ ...edit, package_id: e.target.value })}>
+              <option value="">No package / custom</option>
+              {(allPackages.data ?? []).filter((p) => p.active || p.id === s.package_id).map((p) => (
+                <option key={p.id} value={p.id}>{p.name} — {peso(p.selling_price)}</option>
+              ))}
+            </select>
+          </label>
+          <label>Quantity<input type="number" min="1" step="1" value={edit.quantity} onChange={(e) => setEdit({ ...edit, quantity: e.target.value })} /></label>
+          <label>Price for the package (₱, total for the quantity)<input type="number" step="0.01" min="0" value={edit.selling_price} onChange={(e) => setEdit({ ...edit, selling_price: e.target.value })} /></label>
+          <label>Discount (₱)<input type="number" step="0.01" min="0" value={edit.discount} onChange={(e) => setEdit({ ...edit, discount: e.target.value })} /></label>
+          <label className="adm-wide">Notes<textarea value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></label>
+
+          {(Math.max(1, Math.round(n(edit.quantity)) || 1) !== (n(s.quantity) || 1)) && (
+            <div className="adm-wide" style={{ display: "grid", gap: 6 }}>
+              <label className="adm-check">
+                <input type="checkbox" checked={edit.reprice} onChange={(e) => setEdit({ ...edit, reprice: e.target.checked })} />
+                Change the price to match the new quantity (unless you typed a price above)
+              </label>
+              <label className="adm-check">
+                <input type="checkbox" checked={edit.rescale} onChange={(e) => setEdit({ ...edit, rescale: e.target.checked })} />
+                Change the materials and package costs to match the new quantity
+              </label>
+            </div>
+          )}
+          {(edit.package_id || null) !== (s.package_id || null) && edit.package_id && (
+            <label className="adm-check adm-wide">
+              <input type="checkbox" checked={edit.resetFromPackage} onChange={(e) => setEdit({ ...edit, resetFromPackage: e.target.checked })} />
+              Replace the price, materials and package costs with the new package's
+            </label>
+          )}
+          <p className="adm-hint adm-wide">
+            Materials are taken from or put back into your stock as they change. If this sale is on your Google Calendar, it is updated
+            when the event details change. A saved service agreement will tell you when the booking details no longer match it.
+          </p>
+          <div className="adm-row adm-wide">
+            <Button type="submit">Save changes</Button>
+            <Button type="button" variant="outline" onClick={() => setEdit(null)}>Cancel</Button>
+          </div>
+        </form>
+      )}
       <div className="adm-grid">
         <section className="adm-card">
-          <h2>Details</h2>
+          <div className="adm-head"><h2>Details</h2><Button size="sm" variant="outline" onClick={startEdit}>Edit details</Button></div>
           <dl className="adm-dl">
             <dt>Customer</dt><dd>{s.customer_name}</dd>
             <dt>Contact</dt><dd>{s.customer_contact ?? "—"}</dd>
@@ -281,7 +482,7 @@ function SaleDetail() {
           <table className="adm-table">
             <thead><tr><th>Add-on</th><th>Qty</th><th>Price</th><th>Total</th><th /></tr></thead>
             <tbody>{s.sale_addons!.map((a) => (
-              <tr key={a.id}><td>{a.name_snapshot}</td><td>{n(a.quantity)}</td><td>{peso(a.unit_price_snapshot)}</td><td>{peso(a.total_price)}</td>
+              <tr key={a.id}><td>{a.name_snapshot}</td><td><input type="number" step="1" min="1" style={{ width: 70 }} defaultValue={n(a.quantity)} aria-label="Quantity" onBlur={(e) => n(e.target.value) > 0 && n(e.target.value) !== n(a.quantity) && updateLine("sale_addons", a.id, { quantity: n(e.target.value) })} /></td><td>{peso(a.unit_price_snapshot)}</td><td>{peso(a.total_price)}</td>
                 <td className="adm-actions"><button onClick={() => del("sale_addons", a.id)}>Remove</button></td></tr>
             ))}</tbody>
           </table>
@@ -311,7 +512,7 @@ function SaleDetail() {
           <table className="adm-table">
             <thead><tr><th>Material</th><th>Qty</th><th>Cost/unit (saved)</th><th>Total</th><th /></tr></thead>
             <tbody>{s.sale_materials.map((m) => (
-              <tr key={m.id}><td>{m.material_name_snapshot}</td><td>{m.quantity}</td><td>{peso(m.unit_cost_snapshot)}</td><td>{peso(m.total_cost)}</td>
+              <tr key={m.id}><td>{m.material_name_snapshot}</td><td><input type="number" step="0.01" min="0" style={{ width: 80 }} defaultValue={n(m.quantity)} aria-label="Quantity" onBlur={(e) => n(e.target.value) >= 0 && n(e.target.value) !== n(m.quantity) && updateLine("sale_materials", m.id, { quantity: n(e.target.value) })} /></td><td>{peso(m.unit_cost_snapshot)}</td><td>{peso(m.total_cost)}</td>
                 <td className="adm-actions"><button onClick={() => del("sale_materials", m.id)}>Remove</button></td></tr>
             ))}</tbody>
           </table>
@@ -339,7 +540,7 @@ function SaleDetail() {
           <table className="adm-table">
             <thead><tr><th>Expense</th><th>Category</th><th>Date</th><th>Amount</th><th /></tr></thead>
             <tbody>{s.sale_expenses.map((x) => (
-              <tr key={x.id}><td>{x.description}{x.notes ? <small className="adm-hint"> — {x.notes}</small> : null}</td><td>{x.category}</td><td>{x.expense_date}</td><td>{peso(x.amount)}</td>
+              <tr key={x.id}><td>{x.description}{x.notes ? <small className="adm-hint"> — {x.notes}</small> : null}</td><td>{x.category}</td><td>{x.expense_date}</td><td><input type="number" step="0.01" min="0" style={{ width: 100 }} defaultValue={n(x.amount)} aria-label="Amount" onBlur={(e) => n(e.target.value) >= 0 && n(e.target.value) !== n(x.amount) && updateLine("sale_expenses", x.id, { amount: n(e.target.value) })} /></td>
                 <td className="adm-actions"><button onClick={() => del("sale_expenses", x.id)}>Remove</button></td></tr>
             ))}</tbody>
           </table>

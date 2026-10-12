@@ -31,7 +31,7 @@ function CalendarPage() {
     <div className="adm-page">
       <header className="adm-head">
         <h1>Bookings calendar</h1>
-        <Link to="/admin/sales"><Button>+ Add booking</Button></Link>
+        <Button asChild><Link to="/admin/sales/events" search={{ add: true }}>+ Add booking</Link></Button>
       </header>
       <div className="adm-row">
         <Button variant="outline" size="sm" onClick={() => move(-1)}>←</Button>
