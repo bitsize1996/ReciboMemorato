@@ -44,11 +44,11 @@ const SECTION: Record<string, { title: string; hint: string; add: string; search
 };
 
 /** The Sales list. With `kind` it shows one kind of sale only, with columns that suit it. */
-export function SalesBoard({ kind }: { kind?: SaleType }) {
+export function SalesBoard({ kind, startAdding }: { kind?: SaleType; startAdding?: boolean }) {
   const copy = SECTION[kind ?? "all"]!;
   const sales = useSales();
   const packages = usePackages();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(Boolean(startAdding));
   const [q, setQ] = useState("");
   const [pkg, setPkg] = useState("");
   const [status, setStatus] = useState("");
@@ -84,7 +84,10 @@ export function SalesBoard({ kind }: { kind?: SaleType }) {
 
   const totals = rows
     .filter((s) => s.payment_status !== "cancelled")
-    .reduce((a, s) => ({ revenue: a.revenue + s.totals.netRevenue, profit: a.profit + s.totals.profit }), { revenue: 0, profit: 0 });
+    .reduce(
+      (a, s) => ({ revenue: a.revenue + s.totals.netRevenue, profit: a.profit + s.totals.profit, items: a.items + (n(s.quantity) || 1) }),
+      { revenue: 0, profit: 0, items: 0 },
+    );
 
   const th = (key: SortKey, label: string) => (
     <th><button className="adm-sort" onClick={() => setSort({ key, asc: sort.key === key ? !sort.asc : true })}>
@@ -124,7 +127,9 @@ export function SalesBoard({ kind }: { kind?: SaleType }) {
       </div>
       {rows.length > 0 && (
         <p className="adm-hint" style={{ margin: "4px 0 10px" }}>
-          {rows.length} sale{rows.length === 1 ? "" : "s"} · Revenue {peso(totals.revenue)} · Profit {peso(totals.profit)}
+          {rows.length} sale{rows.length === 1 ? "" : "s"}
+          {kind !== "event" ? ` · ${totals.items} ${kind === "popup" ? "print" : "item"}${totals.items === 1 ? "" : "s"} sold` : ""}
+          {" "}· Revenue {peso(totals.revenue)} · Profit {peso(totals.profit)}
         </p>
       )}
       <section className="adm-card adm-scroll">
@@ -196,16 +201,9 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     setOpLines([]);
   }
 
-  function pickPackage(id: string) {
-    const p = packages.data?.find((x) => x.id === id);
-    const qty = n(f.quantity) || 1;
-    const packageHours = n((p as { service_hours?: number | null } | undefined)?.service_hours);
-    setF((prev) => ({
-      ...prev,
-      package_id: id,
-      selling_price: p ? String(n(p.selling_price) * qty) : prev.selling_price,
-      service_hours: packageHours > 0 ? String(packageHours) : prev.service_hours,
-    }));
+  /** Fills the price, materials and operation costs for a package and a number of items. */
+  function applyPackage(p: (typeof offered)[number] | undefined, qty: number) {
+    setF((prev) => ({ ...prev, selling_price: p ? String(n(p.selling_price) * qty) : prev.selling_price }));
     setOpLines(
       p
         ? saleExpensesFromPackage(p as never, qty, n(p.selling_price) * qty).map((x) => ({
@@ -219,6 +217,27 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     })) : []);
   }
 
+  function pickPackage(id: string) {
+    const p = packages.data?.find((x) => x.id === id);
+    const qty = n(f.quantity) || 1;
+    const packageHours = n((p as { service_hours?: number | null } | undefined)?.service_hours);
+    setF((prev) => ({
+      ...prev,
+      package_id: id,
+      // Picking a package under "Other" files the sale under the package's own kind.
+      sale_type: p && prev.sale_type === "other" ? saleTypeOfPackage((p as { service_type?: string }).service_type) : prev.sale_type,
+      service_hours: packageHours > 0 ? String(packageHours) : prev.service_hours,
+    }));
+    applyPackage(p, qty);
+  }
+
+  /** Changing the quantity recalculates the price, materials and operation costs. */
+  function changeQuantity(value: string) {
+    set("quantity", value);
+    const p = packages.data?.find((x) => x.id === f.package_id);
+    if (p) applyPackage(p, Math.max(1, n(value) || 1));
+  }
+
   const netRevenue = n(f.selling_price) - n(f.discount);
   const matTotal = lines.reduce((a, l) => a + n(l.quantity) * n(l.unit_cost), 0);
 
@@ -226,6 +245,12 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     e.preventDefault();
     setBusy(true);
     const p = packages.data?.find((x) => x.id === f.package_id);
+    // Keep the payment status and the amount paid telling the same story.
+    const netToPay = n(f.selling_price) - n(f.discount);
+    let amountPaid = n(f.amount_paid);
+    let paymentStatus: PaymentStatus = f.payment_status;
+    if (paymentStatus === "fully_paid") amountPaid = Math.max(amountPaid, netToPay);
+    else if (paymentStatus === "unpaid" && amountPaid > 0) paymentStatus = amountPaid >= netToPay && netToPay > 0 ? "fully_paid" : "partially_paid";
     const { data, error } = await supabase.from("sales").insert({
       customer_name: f.customer_name.trim(), customer_contact: f.customer_contact || null,
       customer_email: f.customer_email.trim() || null, sale_type: f.sale_type,
@@ -238,8 +263,8 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       service_hours: isEvent && n(f.service_hours) > 0 ? n(f.service_hours) : null,
       event_date: isEvent ? f.event_date || null : null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
-      selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: n(f.amount_paid),
-      payment_status: f.payment_status, notes: f.notes || null,
+      selling_price: n(f.selling_price), discount: n(f.discount), amount_paid: amountPaid,
+      payment_status: paymentStatus, notes: f.notes || null,
     } as never).select("id").single();
     if (error) { setBusy(false); return setErr(error.message); }
     const valid = lines.filter((l) => l.name && n(l.quantity) > 0);
@@ -306,13 +331,25 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
           {offered.map((p) => <option key={p.id} value={p.id}>{p.name} — {peso(p.selling_price)}</option>)}
         </select>
       </label>
-      <label>Quantity<input type="number" min="1" value={f.quantity} onChange={(e) => set("quantity", e.target.value)} /></label>
+      <label>Quantity
+        <input type="number" min="1" value={f.quantity} onChange={(e) => changeQuantity(e.target.value)} />
+        {f.package_id ? <small className="adm-hint">The price, materials and operation costs follow the quantity.</small> : null}
+      </label>
       <label>Selling price (₱)<input type="number" step="0.01" min="0" value={f.selling_price} onChange={(e) => set("selling_price", e.target.value)} /></label>
       <label>Discount (₱)<input type="number" step="0.01" min="0" value={f.discount} onChange={(e) => set("discount", e.target.value)} /></label>
       <label>Amount paid (₱)<input type="number" step="0.01" min="0" value={f.amount_paid} onChange={(e) => set("amount_paid", e.target.value)} /></label>
       <label>Balance<input readOnly value={peso(netRevenue - n(f.amount_paid))} /></label>
       <label>Payment status
-        <select value={f.payment_status} onChange={(e) => set("payment_status", e.target.value)}>
+        <select
+          value={f.payment_status}
+          onChange={(e) =>
+            setF((prev) => ({
+              ...prev,
+              payment_status: e.target.value as PaymentStatus,
+              amount_paid: e.target.value === "fully_paid" ? String(n(prev.selling_price) - n(prev.discount)) : prev.amount_paid,
+            }))
+          }
+        >
           {PAYMENT_STATUSES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
       </label>

@@ -13,12 +13,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BookRouteImport } from './routes/book'
+import { Route as PackagesRouteImport } from './routes/packages'
 import { Route as ProofsRouteImport } from './routes/proofs'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
 import { Route as MemoriesSlugRouteImport } from './routes/memories.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedAdminBackdropsRouteImport } from './routes/_authenticated/admin.backdrops'
 import { Route as AuthenticatedAdminCalendarRouteImport } from './routes/_authenticated/admin.calendar'
 import { Route as AuthenticatedAdminCustomizeRouteImport } from './routes/_authenticated/admin.customize'
 import { Route as AuthenticatedAdminEventsRouteImport } from './routes/_authenticated/admin.events'
@@ -26,15 +29,20 @@ import { Route as AuthenticatedAdminExpensesRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminInquiriesRouteImport } from './routes/_authenticated/admin.inquiries'
 import { Route as AuthenticatedAdminMaterialsRouteImport } from './routes/_authenticated/admin.materials'
 import { Route as AuthenticatedAdminPackagesRouteImport } from './routes/_authenticated/admin.packages'
+import { Route as AuthenticatedAdminPopupRouteImport } from './routes/_authenticated/admin.popup'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated/admin.reports'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
 import { Route as AuthenticatedAdminShowcaseRouteImport } from './routes/_authenticated/admin.showcase'
+import { Route as AuthenticatedAdminTestimonialsRouteImport } from './routes/_authenticated/admin.testimonials'
 import { Route as ApiPublicMemoryMediaRouteImport } from './routes/api/public/memory-media'
 import { Route as ApiPublicSiteImageRouteImport } from './routes/api/public/site-image'
 import { Route as ApiPublicSyncDriveRouteImport } from './routes/api/public/sync-drive'
 import { Route as AuthenticatedAdminGalleryEventIdRouteImport } from './routes/_authenticated/admin.gallery.$eventId'
 import { Route as AuthenticatedAdminSalesIndexRouteImport } from './routes/_authenticated/admin.sales.index'
 import { Route as AuthenticatedAdminSalesSaleIdRouteImport } from './routes/_authenticated/admin.sales.$saleId'
+import { Route as AuthenticatedAdminSalesEventsRouteImport } from './routes/_authenticated/admin.sales.events'
+import { Route as AuthenticatedAdminSalesOrdersRouteImport } from './routes/_authenticated/admin.sales.orders'
+import { Route as AuthenticatedAdminSalesSaleIdAgreementRouteImport } from './routes/_authenticated/admin.sales.$saleId.agreement'
 import { Route as AuthenticatedAdminSalesSaleIdInvoiceRouteImport } from './routes/_authenticated/admin.sales.$saleId.invoice'
 
 const IndexRoute = IndexRouteImport.update({
@@ -56,6 +64,11 @@ const BookRoute = BookRouteImport.update({
   path: '/book',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PackagesRoute = PackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProofsRoute = ProofsRouteImport.update({
   id: '/proofs',
   path: '/proofs',
@@ -64,6 +77,11 @@ const ProofsRoute = ProofsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewsRoute = ReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -86,6 +104,12 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminBackdropsRoute =
+  AuthenticatedAdminBackdropsRouteImport.update({
+    id: '/backdrops',
+    path: '/backdrops',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCalendarRoute =
   AuthenticatedAdminCalendarRouteImport.update({
     id: '/calendar',
@@ -128,6 +152,11 @@ const AuthenticatedAdminPackagesRoute =
     path: '/packages',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminPopupRoute = AuthenticatedAdminPopupRouteImport.update({
+  id: '/popup',
+  path: '/popup',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
 const AuthenticatedAdminReportsRoute =
   AuthenticatedAdminReportsRouteImport.update({
     id: '/reports',
@@ -144,6 +173,12 @@ const AuthenticatedAdminShowcaseRoute =
   AuthenticatedAdminShowcaseRouteImport.update({
     id: '/showcase',
     path: '/showcase',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminTestimonialsRoute =
+  AuthenticatedAdminTestimonialsRouteImport.update({
+    id: '/testimonials',
+    path: '/testimonials',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const ApiPublicMemoryMediaRoute = ApiPublicMemoryMediaRouteImport.update({
@@ -179,6 +214,24 @@ const AuthenticatedAdminSalesSaleIdRoute =
     path: '/sales/$saleId',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminSalesEventsRoute =
+  AuthenticatedAdminSalesEventsRouteImport.update({
+    id: '/sales/events',
+    path: '/sales/events',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSalesOrdersRoute =
+  AuthenticatedAdminSalesOrdersRouteImport.update({
+    id: '/sales/orders',
+    path: '/sales/orders',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSalesSaleIdAgreementRoute =
+  AuthenticatedAdminSalesSaleIdAgreementRouteImport.update({
+    id: '/agreement',
+    path: '/agreement',
+    getParentRoute: () => AuthenticatedAdminSalesSaleIdRoute,
+  } as any)
 const AuthenticatedAdminSalesSaleIdInvoiceRoute =
   AuthenticatedAdminSalesSaleIdInvoiceRouteImport.update({
     id: '/invoice',
@@ -190,11 +243,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/book': typeof BookRoute
+  '/packages': typeof PackagesRoute
   '/proofs': typeof ProofsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/reviews': typeof ReviewsRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
+  '/admin/backdrops': typeof AuthenticatedAdminBackdropsRoute
   '/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
@@ -202,26 +258,34 @@ export interface FileRoutesByFullPath {
   '/admin/inquiries': typeof AuthenticatedAdminInquiriesRoute
   '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
   '/admin/packages': typeof AuthenticatedAdminPackagesRoute
+  '/admin/popup': typeof AuthenticatedAdminPopupRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/showcase': typeof AuthenticatedAdminShowcaseRoute
+  '/admin/testimonials': typeof AuthenticatedAdminTestimonialsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
   '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
   '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
+  '/admin/sales/events': typeof AuthenticatedAdminSalesEventsRoute
+  '/admin/sales/orders': typeof AuthenticatedAdminSalesOrdersRoute
   '/admin/sales/': typeof AuthenticatedAdminSalesIndexRoute
+  '/admin/sales/$saleId/agreement': typeof AuthenticatedAdminSalesSaleIdAgreementRoute
   '/admin/sales/$saleId/invoice': typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/book': typeof BookRoute
+  '/packages': typeof PackagesRoute
   '/proofs': typeof ProofsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/reviews': typeof ReviewsRoute
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories': typeof MemoriesIndexRoute
+  '/admin/backdrops': typeof AuthenticatedAdminBackdropsRoute
   '/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/admin/events': typeof AuthenticatedAdminEventsRoute
@@ -229,16 +293,21 @@ export interface FileRoutesByTo {
   '/admin/inquiries': typeof AuthenticatedAdminInquiriesRoute
   '/admin/materials': typeof AuthenticatedAdminMaterialsRoute
   '/admin/packages': typeof AuthenticatedAdminPackagesRoute
+  '/admin/popup': typeof AuthenticatedAdminPopupRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/showcase': typeof AuthenticatedAdminShowcaseRoute
+  '/admin/testimonials': typeof AuthenticatedAdminTestimonialsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
   '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
   '/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
+  '/admin/sales/events': typeof AuthenticatedAdminSalesEventsRoute
+  '/admin/sales/orders': typeof AuthenticatedAdminSalesOrdersRoute
   '/admin/sales': typeof AuthenticatedAdminSalesIndexRoute
+  '/admin/sales/$saleId/agreement': typeof AuthenticatedAdminSalesSaleIdAgreementRoute
   '/admin/sales/$saleId/invoice': typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 export interface FileRoutesById {
@@ -247,11 +316,14 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/book': typeof BookRoute
+  '/packages': typeof PackagesRoute
   '/proofs': typeof ProofsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/reviews': typeof ReviewsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/memories/$slug': typeof MemoriesSlugRoute
   '/memories/': typeof MemoriesIndexRoute
+  '/_authenticated/admin/backdrops': typeof AuthenticatedAdminBackdropsRoute
   '/_authenticated/admin/calendar': typeof AuthenticatedAdminCalendarRoute
   '/_authenticated/admin/customize': typeof AuthenticatedAdminCustomizeRoute
   '/_authenticated/admin/events': typeof AuthenticatedAdminEventsRoute
@@ -259,16 +331,21 @@ export interface FileRoutesById {
   '/_authenticated/admin/inquiries': typeof AuthenticatedAdminInquiriesRoute
   '/_authenticated/admin/materials': typeof AuthenticatedAdminMaterialsRoute
   '/_authenticated/admin/packages': typeof AuthenticatedAdminPackagesRoute
+  '/_authenticated/admin/popup': typeof AuthenticatedAdminPopupRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/showcase': typeof AuthenticatedAdminShowcaseRoute
+  '/_authenticated/admin/testimonials': typeof AuthenticatedAdminTestimonialsRoute
   '/api/public/memory-media': typeof ApiPublicMemoryMediaRoute
   '/api/public/site-image': typeof ApiPublicSiteImageRoute
   '/api/public/sync-drive': typeof ApiPublicSyncDriveRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/admin/gallery/$eventId': typeof AuthenticatedAdminGalleryEventIdRoute
   '/_authenticated/admin/sales/$saleId': typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
+  '/_authenticated/admin/sales/events': typeof AuthenticatedAdminSalesEventsRoute
+  '/_authenticated/admin/sales/orders': typeof AuthenticatedAdminSalesOrdersRoute
   '/_authenticated/admin/sales/': typeof AuthenticatedAdminSalesIndexRoute
+  '/_authenticated/admin/sales/$saleId/agreement': typeof AuthenticatedAdminSalesSaleIdAgreementRoute
   '/_authenticated/admin/sales/$saleId/invoice': typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 export interface FileRouteTypes {
@@ -277,11 +354,14 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/book'
+    | '/packages'
     | '/proofs'
     | '/reset-password'
+    | '/reviews'
     | '/admin'
     | '/memories/$slug'
     | '/memories/'
+    | '/admin/backdrops'
     | '/admin/calendar'
     | '/admin/customize'
     | '/admin/events'
@@ -289,26 +369,34 @@ export interface FileRouteTypes {
     | '/admin/inquiries'
     | '/admin/materials'
     | '/admin/packages'
+    | '/admin/popup'
     | '/admin/reports'
     | '/admin/settings'
     | '/admin/showcase'
+    | '/admin/testimonials'
     | '/api/public/memory-media'
     | '/api/public/site-image'
     | '/api/public/sync-drive'
     | '/admin/'
     | '/admin/gallery/$eventId'
     | '/admin/sales/$saleId'
+    | '/admin/sales/events'
+    | '/admin/sales/orders'
     | '/admin/sales/'
+    | '/admin/sales/$saleId/agreement'
     | '/admin/sales/$saleId/invoice'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/book'
+    | '/packages'
     | '/proofs'
     | '/reset-password'
+    | '/reviews'
     | '/memories/$slug'
     | '/memories'
+    | '/admin/backdrops'
     | '/admin/calendar'
     | '/admin/customize'
     | '/admin/events'
@@ -316,16 +404,21 @@ export interface FileRouteTypes {
     | '/admin/inquiries'
     | '/admin/materials'
     | '/admin/packages'
+    | '/admin/popup'
     | '/admin/reports'
     | '/admin/settings'
     | '/admin/showcase'
+    | '/admin/testimonials'
     | '/api/public/memory-media'
     | '/api/public/site-image'
     | '/api/public/sync-drive'
     | '/admin'
     | '/admin/gallery/$eventId'
     | '/admin/sales/$saleId'
+    | '/admin/sales/events'
+    | '/admin/sales/orders'
     | '/admin/sales'
+    | '/admin/sales/$saleId/agreement'
     | '/admin/sales/$saleId/invoice'
   id:
     | '__root__'
@@ -333,11 +426,14 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/book'
+    | '/packages'
     | '/proofs'
     | '/reset-password'
+    | '/reviews'
     | '/_authenticated/admin'
     | '/memories/$slug'
     | '/memories/'
+    | '/_authenticated/admin/backdrops'
     | '/_authenticated/admin/calendar'
     | '/_authenticated/admin/customize'
     | '/_authenticated/admin/events'
@@ -345,16 +441,21 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/inquiries'
     | '/_authenticated/admin/materials'
     | '/_authenticated/admin/packages'
+    | '/_authenticated/admin/popup'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/showcase'
+    | '/_authenticated/admin/testimonials'
     | '/api/public/memory-media'
     | '/api/public/site-image'
     | '/api/public/sync-drive'
     | '/_authenticated/admin/'
     | '/_authenticated/admin/gallery/$eventId'
     | '/_authenticated/admin/sales/$saleId'
+    | '/_authenticated/admin/sales/events'
+    | '/_authenticated/admin/sales/orders'
     | '/_authenticated/admin/sales/'
+    | '/_authenticated/admin/sales/$saleId/agreement'
     | '/_authenticated/admin/sales/$saleId/invoice'
   fileRoutesById: FileRoutesById
 }
@@ -363,8 +464,10 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   BookRoute: typeof BookRoute
+  PackagesRoute: typeof PackagesRoute
   ProofsRoute: typeof ProofsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ReviewsRoute: typeof ReviewsRoute
   MemoriesSlugRoute: typeof MemoriesSlugRoute
   MemoriesIndexRoute: typeof MemoriesIndexRoute
   ApiPublicMemoryMediaRoute: typeof ApiPublicMemoryMediaRoute
@@ -402,6 +505,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/packages': {
+      id: '/packages'
+      path: '/packages'
+      fullPath: '/packages'
+      preLoaderRoute: typeof PackagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/proofs': {
       id: '/proofs'
       path: '/proofs'
@@ -414,6 +524,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reviews': {
+      id: '/reviews'
+      path: '/reviews'
+      fullPath: '/reviews'
+      preLoaderRoute: typeof ReviewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -442,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/backdrops': {
+      id: '/_authenticated/admin/backdrops'
+      path: '/backdrops'
+      fullPath: '/admin/backdrops'
+      preLoaderRoute: typeof AuthenticatedAdminBackdropsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/calendar': {
@@ -493,6 +617,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPackagesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/popup': {
+      id: '/_authenticated/admin/popup'
+      path: '/popup'
+      fullPath: '/admin/popup'
+      preLoaderRoute: typeof AuthenticatedAdminPopupRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/reports': {
       id: '/_authenticated/admin/reports'
       path: '/reports'
@@ -512,6 +643,13 @@ declare module '@tanstack/react-router' {
       path: '/showcase'
       fullPath: '/admin/showcase'
       preLoaderRoute: typeof AuthenticatedAdminShowcaseRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/testimonials': {
+      id: '/_authenticated/admin/testimonials'
+      path: '/testimonials'
+      fullPath: '/admin/testimonials'
+      preLoaderRoute: typeof AuthenticatedAdminTestimonialsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/api/public/memory-media': {
@@ -556,6 +694,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSalesSaleIdRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sales/events': {
+      id: '/_authenticated/admin/sales/events'
+      path: '/sales/events'
+      fullPath: '/admin/sales/events'
+      preLoaderRoute: typeof AuthenticatedAdminSalesEventsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sales/orders': {
+      id: '/_authenticated/admin/sales/orders'
+      path: '/sales/orders'
+      fullPath: '/admin/sales/orders'
+      preLoaderRoute: typeof AuthenticatedAdminSalesOrdersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/sales/$saleId/agreement': {
+      id: '/_authenticated/admin/sales/$saleId/agreement'
+      path: '/agreement'
+      fullPath: '/admin/sales/$saleId/agreement'
+      preLoaderRoute: typeof AuthenticatedAdminSalesSaleIdAgreementRouteImport
+      parentRoute: typeof AuthenticatedAdminSalesSaleIdRoute
+    }
     '/_authenticated/admin/sales/$saleId/invoice': {
       id: '/_authenticated/admin/sales/$saleId/invoice'
       path: '/invoice'
@@ -567,11 +726,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminSalesSaleIdRouteChildren {
+  AuthenticatedAdminSalesSaleIdAgreementRoute: typeof AuthenticatedAdminSalesSaleIdAgreementRoute
   AuthenticatedAdminSalesSaleIdInvoiceRoute: typeof AuthenticatedAdminSalesSaleIdInvoiceRoute
 }
 
 const AuthenticatedAdminSalesSaleIdRouteChildren: AuthenticatedAdminSalesSaleIdRouteChildren =
   {
+    AuthenticatedAdminSalesSaleIdAgreementRoute:
+      AuthenticatedAdminSalesSaleIdAgreementRoute,
     AuthenticatedAdminSalesSaleIdInvoiceRoute:
       AuthenticatedAdminSalesSaleIdInvoiceRoute,
   }
@@ -582,6 +744,7 @@ const AuthenticatedAdminSalesSaleIdRouteWithChildren =
   )
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminBackdropsRoute: typeof AuthenticatedAdminBackdropsRoute
   AuthenticatedAdminCalendarRoute: typeof AuthenticatedAdminCalendarRoute
   AuthenticatedAdminCustomizeRoute: typeof AuthenticatedAdminCustomizeRoute
   AuthenticatedAdminEventsRoute: typeof AuthenticatedAdminEventsRoute
@@ -589,16 +752,21 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminInquiriesRoute: typeof AuthenticatedAdminInquiriesRoute
   AuthenticatedAdminMaterialsRoute: typeof AuthenticatedAdminMaterialsRoute
   AuthenticatedAdminPackagesRoute: typeof AuthenticatedAdminPackagesRoute
+  AuthenticatedAdminPopupRoute: typeof AuthenticatedAdminPopupRoute
   AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAdminShowcaseRoute: typeof AuthenticatedAdminShowcaseRoute
+  AuthenticatedAdminTestimonialsRoute: typeof AuthenticatedAdminTestimonialsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
   AuthenticatedAdminGalleryEventIdRoute: typeof AuthenticatedAdminGalleryEventIdRoute
   AuthenticatedAdminSalesSaleIdRoute: typeof AuthenticatedAdminSalesSaleIdRouteWithChildren
+  AuthenticatedAdminSalesEventsRoute: typeof AuthenticatedAdminSalesEventsRoute
+  AuthenticatedAdminSalesOrdersRoute: typeof AuthenticatedAdminSalesOrdersRoute
   AuthenticatedAdminSalesIndexRoute: typeof AuthenticatedAdminSalesIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminBackdropsRoute: AuthenticatedAdminBackdropsRoute,
   AuthenticatedAdminCalendarRoute: AuthenticatedAdminCalendarRoute,
   AuthenticatedAdminCustomizeRoute: AuthenticatedAdminCustomizeRoute,
   AuthenticatedAdminEventsRoute: AuthenticatedAdminEventsRoute,
@@ -606,13 +774,17 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminInquiriesRoute: AuthenticatedAdminInquiriesRoute,
   AuthenticatedAdminMaterialsRoute: AuthenticatedAdminMaterialsRoute,
   AuthenticatedAdminPackagesRoute: AuthenticatedAdminPackagesRoute,
+  AuthenticatedAdminPopupRoute: AuthenticatedAdminPopupRoute,
   AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAdminShowcaseRoute: AuthenticatedAdminShowcaseRoute,
+  AuthenticatedAdminTestimonialsRoute: AuthenticatedAdminTestimonialsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   AuthenticatedAdminGalleryEventIdRoute: AuthenticatedAdminGalleryEventIdRoute,
   AuthenticatedAdminSalesSaleIdRoute:
     AuthenticatedAdminSalesSaleIdRouteWithChildren,
+  AuthenticatedAdminSalesEventsRoute: AuthenticatedAdminSalesEventsRoute,
+  AuthenticatedAdminSalesOrdersRoute: AuthenticatedAdminSalesOrdersRoute,
   AuthenticatedAdminSalesIndexRoute: AuthenticatedAdminSalesIndexRoute,
 }
 
@@ -635,8 +807,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   BookRoute: BookRoute,
+  PackagesRoute: PackagesRoute,
   ProofsRoute: ProofsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ReviewsRoute: ReviewsRoute,
   MemoriesSlugRoute: MemoriesSlugRoute,
   MemoriesIndexRoute: MemoriesIndexRoute,
   ApiPublicMemoryMediaRoute: ApiPublicMemoryMediaRoute,

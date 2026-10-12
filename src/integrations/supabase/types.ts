@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -19,6 +19,7 @@ export type Database = {
           active: boolean
           created_at: string
           description: string | null
+          extra_hours: number | null
           id: string
           name: string
           price: number
@@ -29,6 +30,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           description?: string | null
+          extra_hours?: number | null
           id?: string
           name: string
           price?: number
@@ -39,6 +41,7 @@ export type Database = {
           active?: boolean
           created_at?: string
           description?: string | null
+          extra_hours?: number | null
           id?: string
           name?: string
           price?: number
@@ -47,23 +50,103 @@ export type Database = {
         }
         Relationships: []
       }
-      business_info: {
+      agreements: {
         Row: {
-          contact_email: string | null
-          id: number
-          payment_instructions: string | null
+          created_at: string
+          id: string
+          sale_id: string
+          sent_at: string | null
+          signed_at: string | null
+          status: string
+          terms: Json
           updated_at: string
         }
         Insert: {
-          contact_email?: string | null
-          id?: number
-          payment_instructions?: string | null
+          created_at?: string
+          id?: string
+          sale_id: string
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: string
+          terms?: Json
           updated_at?: string
         }
         Update: {
+          created_at?: string
+          id?: string
+          sale_id?: string
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: string
+          terms?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreements_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backdrops: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          id: string
+          image_url: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      business_info: {
+        Row: {
+          agreement_defaults: Json | null
+          contact_email: string | null
+          id: number
+          payment_instructions: string | null
+          representative_name: string | null
+          signature_image: string | null
+          updated_at: string
+        }
+        Insert: {
+          agreement_defaults?: Json | null
           contact_email?: string | null
           id?: number
           payment_instructions?: string | null
+          representative_name?: string | null
+          signature_image?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agreement_defaults?: Json | null
+          contact_email?: string | null
+          id?: number
+          payment_instructions?: string | null
+          representative_name?: string | null
+          signature_image?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -192,12 +275,14 @@ export type Database = {
       }
       inquiries: {
         Row: {
+          backdrop: string | null
           contact: string | null
           contact_method: string
           created_at: string
           delivery_method: string | null
           email: string | null
           event_date: string | null
+          event_time: string | null
           event_type: string | null
           guests: number | null
           id: string
@@ -214,6 +299,7 @@ export type Database = {
           quantity: number | null
           quoted_amount: number | null
           sale_id: string | null
+          service_hours: number | null
           source: string
           status: string
           theme: string | null
@@ -221,12 +307,14 @@ export type Database = {
           venue: string | null
         }
         Insert: {
+          backdrop?: string | null
           contact?: string | null
           contact_method?: string
           created_at?: string
           delivery_method?: string | null
           email?: string | null
           event_date?: string | null
+          event_time?: string | null
           event_type?: string | null
           guests?: number | null
           id?: string
@@ -243,6 +331,7 @@ export type Database = {
           quantity?: number | null
           quoted_amount?: number | null
           sale_id?: string | null
+          service_hours?: number | null
           source?: string
           status?: string
           theme?: string | null
@@ -250,12 +339,14 @@ export type Database = {
           venue?: string | null
         }
         Update: {
+          backdrop?: string | null
           contact?: string | null
           contact_method?: string
           created_at?: string
           delivery_method?: string | null
           email?: string | null
           event_date?: string | null
+          event_time?: string | null
           event_type?: string | null
           guests?: number | null
           id?: string
@@ -272,6 +363,7 @@ export type Database = {
           quantity?: number | null
           quoted_amount?: number | null
           sale_id?: string | null
+          service_hours?: number | null
           source?: string
           status?: string
           theme?: string | null
@@ -651,6 +743,41 @@ export type Database = {
           },
         ]
       }
+      package_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          image_url: string
+          package_id: string
+          sort_order: number
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          package_id: string
+          sort_order?: number
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          package_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_photos_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           active: boolean
@@ -664,8 +791,11 @@ export type Database = {
           notes: string | null
           operation_costs: Json
           popup_available: boolean
+          product_line: string | null
           selling_price: number
+          service_hours: number | null
           service_type: string
+          show_on_website: boolean
           target_margin: number | null
           updated_at: string
         }
@@ -681,8 +811,11 @@ export type Database = {
           notes?: string | null
           operation_costs?: Json
           popup_available?: boolean
+          product_line?: string | null
           selling_price?: number
+          service_hours?: number | null
           service_type?: string
+          show_on_website?: boolean
           target_margin?: number | null
           updated_at?: string
         }
@@ -698,8 +831,11 @@ export type Database = {
           notes?: string | null
           operation_costs?: Json
           popup_available?: boolean
+          product_line?: string | null
           selling_price?: number
+          service_hours?: number | null
           service_type?: string
+          show_on_website?: boolean
           target_margin?: number | null
           updated_at?: string
         }
@@ -854,6 +990,7 @@ export type Database = {
       sales: {
         Row: {
           amount_paid: number
+          backdrop: string | null
           booking_date: string
           created_at: string
           customer_contact: string | null
@@ -871,14 +1008,18 @@ export type Database = {
           notes: string | null
           package_id: string | null
           package_name_snapshot: string | null
+          payment_method: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           quantity: number
           sale_number: number
+          sale_type: string
           selling_price: number
+          service_hours: number | null
           updated_at: string
         }
         Insert: {
           amount_paid?: number
+          backdrop?: string | null
           booking_date?: string
           created_at?: string
           customer_contact?: string | null
@@ -896,14 +1037,18 @@ export type Database = {
           notes?: string | null
           package_id?: string | null
           package_name_snapshot?: string | null
+          payment_method?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           quantity?: number
           sale_number?: number
+          sale_type?: string
           selling_price?: number
+          service_hours?: number | null
           updated_at?: string
         }
         Update: {
           amount_paid?: number
+          backdrop?: string | null
           booking_date?: string
           created_at?: string
           customer_contact?: string | null
@@ -921,10 +1066,13 @@ export type Database = {
           notes?: string | null
           package_id?: string | null
           package_name_snapshot?: string | null
+          payment_method?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           quantity?: number
           sale_number?: number
+          sale_type?: string
           selling_price?: number
+          service_hours?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1001,6 +1149,48 @@ export type Database = {
           id?: number
           messenger_url?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      testimonials: {
+        Row: {
+          created_at: string
+          featured: boolean
+          id: string
+          image_url: string | null
+          label: string | null
+          name: string
+          published: boolean
+          quote: string
+          rating: number
+          sort_order: number
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          featured?: boolean
+          id?: string
+          image_url?: string | null
+          label?: string | null
+          name: string
+          published?: boolean
+          quote: string
+          rating?: number
+          sort_order?: number
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          featured?: boolean
+          id?: string
+          image_url?: string | null
+          label?: string | null
+          name?: string
+          published?: boolean
+          quote?: string
+          rating?: number
+          sort_order?: number
+          source?: string | null
         }
         Relationships: []
       }
