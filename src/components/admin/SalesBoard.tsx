@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useRange } from "@/components/admin/RangeFilter";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useMaterials, usePackages, useSales, type SaleRow } from "@/lib/admin-data";
+import { useAddons, useMaterials, usePackages, useSales, type SaleRow } from "@/lib/admin-data";
 import { PAYMENT_STATUSES, inRange, n, peso, saleCode, statusLabel, type PaymentStatus, type SaleType, SALE_TYPES, saleTypeLabel, saleTypeOfPackage } from "@/lib/finance";
 import { syncSaleToGoogle } from "@/lib/calendar.functions";
 import { expenseCategoryFor, saleExpensesFromPackage } from "@/lib/pricing";
@@ -177,6 +177,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   const navigate = useNavigate();
   const packages = usePackages();
   const materials = useMaterials();
+  const addonCatalog = useAddons();
   const [f, setF] = useState({
     customer_name: "", customer_contact: "", customer_email: "", event_time: "", event_name: "", event_theme: "", event_venue: "", backdrop: "", service_hours: "", event_date: "",
     booking_date: new Date().toISOString().slice(0, 10), package_id: "", quantity: "1",
@@ -184,6 +185,8 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
   });
   const [lines, setLines] = useState<Line[]>([]);
   const [opLines, setOpLines] = useState<OpLine[]>([]);
+  // How many of each add-on are on this booking (add-on id → quantity).
+  const [addonQty, setAddonQty] = useState<Record<string, number>>({});
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -194,11 +197,22 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     (p) => p.active && (f.sale_type === "other" || typeOf(p as { service_type?: string }) === f.sale_type),
   );
 
+  // Add-ons that go with the chosen package (an add-on with no packages ticked goes with every package).
+  const fittingAddons = (addonCatalog.data?.rows ?? []).filter((a) => {
+    if (!a.active) return false;
+    const applies = a.applies_to ?? [];
+    return applies.length === 0 || (f.package_id !== "" && applies.includes(f.package_id));
+  });
+  const chosenAddons = fittingAddons.filter((a) => (addonQty[a.id] ?? 0) > 0);
+  const addonsTotal = chosenAddons.reduce((sum, a) => sum + n(a.price) * (addonQty[a.id] ?? 0), 0);
+  const addonHours = chosenAddons.reduce((sum, a) => sum + n(a.extra_hours) * (addonQty[a.id] ?? 0), 0);
+
   function pickType(value: SaleType) {
     // A different kind of sale starts without a package from the other kind.
     setF((prev) => ({ ...prev, sale_type: value, package_id: "", unit_price: "0" }));
     setLines([]);
     setOpLines([]);
+    setAddonQty({});
   }
 
   /**
@@ -232,6 +246,8 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       sale_type: p && prev.sale_type === "other" ? saleTypeOfPackage((p as { service_type?: string }).service_type) : prev.sale_type,
       service_hours: packageHours > 0 ? String(packageHours) : prev.service_hours,
     }));
+    // A different package has different add-ons.
+    setAddonQty({});
     applyPackage(p, qty);
   }
 
@@ -242,10 +258,11 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     if (p) applyPackage(p, Math.max(1, n(value) || 1), n(f.unit_price));
   }
 
-  // The total is always the price per item times the quantity.
+  // The total is always the price per item times the quantity, plus any add-ons.
   const qtyNow = Math.max(1, n(f.quantity) || 1);
   const total = Math.round(n(f.unit_price) * qtyNow * 100) / 100;
-  const netRevenue = total - n(f.discount);
+  const grandTotal = total + addonsTotal;
+  const netRevenue = grandTotal - n(f.discount);
   const matTotal = lines.reduce((a, l) => a + n(l.quantity) * n(l.unit_cost), 0);
 
   async function save(e: React.FormEvent) {
@@ -253,11 +270,12 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
     setBusy(true);
     const p = packages.data?.find((x) => x.id === f.package_id);
     // Keep the payment status and the amount paid telling the same story.
-    const netToPay = total - n(f.discount);
+    const netToPay = grandTotal - n(f.discount);
     let amountPaid = n(f.amount_paid);
     let paymentStatus: PaymentStatus = f.payment_status;
     if (paymentStatus === "fully_paid") amountPaid = Math.max(amountPaid, netToPay);
     else if (paymentStatus === "unpaid" && amountPaid > 0) paymentStatus = amountPaid >= netToPay && netToPay > 0 ? "fully_paid" : "partially_paid";
+    const hours = n(f.service_hours) + addonHours;
     const { data, error } = await supabase.from("sales").insert({
       customer_name: f.customer_name.trim(), customer_contact: f.customer_contact || null,
       customer_email: f.customer_email.trim() || null, sale_type: f.sale_type,
@@ -267,7 +285,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       event_theme: isEvent ? f.event_theme.trim() || null : null,
       event_venue: isEvent ? f.event_venue.trim() || null : null,
       backdrop: isEvent ? f.backdrop.trim() || null : null,
-      service_hours: isEvent && n(f.service_hours) > 0 ? n(f.service_hours) : null,
+      service_hours: isEvent && hours > 0 ? hours : null,
       event_date: isEvent ? f.event_date || null : null, booking_date: f.booking_date,
       package_id: f.package_id || null, package_name_snapshot: p?.name ?? null, quantity: n(f.quantity) || 1,
       selling_price: total, discount: n(f.discount), amount_paid: amountPaid,
@@ -281,6 +299,13 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
         quantity: n(l.quantity), unit_cost_snapshot: n(l.unit_cost),
       })));
       if (e2) { setBusy(false); return setErr(e2.message); }
+    }
+    if (chosenAddons.length) {
+      const { error: e4 } = await (supabase as any).from("sale_addons").insert(chosenAddons.map((a) => ({
+        sale_id: data.id, addon_id: a.id, name_snapshot: a.name,
+        unit_price_snapshot: n(a.price), quantity: addonQty[a.id] ?? 1, unit_cost_snapshot: n(a.cost),
+      })));
+      if (e4) { setBusy(false); return setErr(e4.message); }
     }
     const validOps = opLines.filter((x) => x.description.trim() && n(x.amount) > 0);
     if (validOps.length) {
@@ -325,7 +350,10 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
           <label>Backdrop<input value={f.backdrop} placeholder="Optional" onChange={(e) => set("backdrop", e.target.value)} /></label>
           <label>Event date<input type="date" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} /></label>
           <label>Event start time<input type="time" value={f.event_time} onChange={(e) => set("event_time", e.target.value)} /></label>
-          <label>Hours of service<input type="number" step="0.5" min="0" value={f.service_hours} placeholder="From the package" onChange={(e) => set("service_hours", e.target.value)} /></label>
+          <label>Hours of service
+            <input type="number" step="0.5" min="0" value={f.service_hours} placeholder="From the package" onChange={(e) => set("service_hours", e.target.value)} />
+            {addonHours > 0 ? <small className="adm-hint">+ {addonHours} from add-ons = {n(f.service_hours) + addonHours} hours in total</small> : null}
+          </label>
         </>
       )}
       {f.sale_type === "popup" && (
@@ -346,10 +374,49 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
         <input type="number" step="0.01" min="0" value={f.unit_price} onChange={(e) => set("unit_price", e.target.value)} />
         {f.package_id ? <small className="adm-hint">From the package. Change it only for a special price.</small> : null}
       </label>
-      <label>Total
+      <label>{chosenAddons.length ? "Package total" : "Total"}
         <input readOnly value={`${peso(total)}${qtyNow > 1 ? `  (${peso(n(f.unit_price))} × ${qtyNow})` : ""}`} />
         <small className="adm-hint">Worked out for you from the price per item and the quantity.</small>
       </label>
+
+      {fittingAddons.length > 0 && (
+        <div className="adm-wide">
+          <h3>Add-ons</h3>
+          <p className="adm-hint">Only the add-ons for the chosen package are listed. Tick the ones the client wants.</p>
+          {fittingAddons.map((a) => {
+            const qty = addonQty[a.id] ?? 0;
+            return (
+              <div className="adm-line" key={a.id}>
+                <label className="adm-check" style={{ flex: "1 1 260px" }}>
+                  <input
+                    type="checkbox"
+                    checked={qty > 0}
+                    onChange={(e) => setAddonQty((prev) => ({ ...prev, [a.id]: e.target.checked ? 1 : 0 }))}
+                  />{" "}
+                  {a.name}
+                </label>
+                {qty > 0 ? (
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    style={{ width: 70 }}
+                    value={qty}
+                    aria-label={`Quantity of ${a.name}`}
+                    onChange={(e) => setAddonQty((prev) => ({ ...prev, [a.id]: Math.max(1, Math.round(n(e.target.value)) || 1) }))}
+                  />
+                ) : null}
+                <span>{peso(n(a.price) * Math.max(qty, 1))}</span>
+              </div>
+            );
+          })}
+          <p><strong>Add-ons: {peso(addonsTotal)}</strong> · Total with add-ons: <strong>{peso(grandTotal)}</strong></p>
+        </div>
+      )}
+      {isEvent && !f.package_id && (addonCatalog.data?.rows ?? []).some((a) => a.active && (a.applies_to ?? []).length > 0) ? (
+        <p className="adm-hint adm-wide">Choose a package to see its add-ons.</p>
+      ) : null}
+
       <label>Discount (₱)<input type="number" step="0.01" min="0" value={f.discount} onChange={(e) => set("discount", e.target.value)} /></label>
       <label>Amount paid (₱)<input type="number" step="0.01" min="0" value={f.amount_paid} onChange={(e) => set("amount_paid", e.target.value)} /></label>
       <label>Balance<input readOnly value={peso(netRevenue - n(f.amount_paid))} /></label>
@@ -360,7 +427,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
             setF((prev) => ({
               ...prev,
               payment_status: e.target.value as PaymentStatus,
-              amount_paid: e.target.value === "fully_paid" ? String(n(prev.unit_price) * Math.max(1, n(prev.quantity) || 1) - n(prev.discount)) : prev.amount_paid,
+              amount_paid: e.target.value === "fully_paid" ? String(n(prev.unit_price) * Math.max(1, n(prev.quantity) || 1) + addonsTotal - n(prev.discount)) : prev.amount_paid,
             }))
           }
         >
@@ -412,7 +479,7 @@ function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleT
       </div>
       <label className="adm-wide">Notes<textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} /></label>
       <div className="adm-row"><Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save sale"}</Button><Button type="button" variant="outline" onClick={onDone}>Cancel</Button></div>
-      <p className="adm-hint adm-wide">You can add more expenses on the sale page after saving.</p>
+      <p className="adm-hint adm-wide">You can add more add-ons and expenses on the sale page after saving.</p>
     </form>
   );
 }
