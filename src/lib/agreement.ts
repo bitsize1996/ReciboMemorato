@@ -17,6 +17,10 @@ export interface AgreementTerms {
   inclusions: string;
   totalRate: string;
   reservationFee: string;
+  /** Downpayment already received for this booking. */
+  amountPaid: string;
+  /** Where to send payments (GCash, bank…), one per line. */
+  paymentDetails: string;
   rescheduleNoticeDays: string;
   graceMinutes: string;
   pauseLimitMinutes: string;
@@ -59,6 +63,8 @@ export const DEFAULT_TERMS = {
   serviceText:
     "agrees to provide photobooth service including booth setup, camera, printer, backdrop, props (if applicable), and on-site attendant during the agreed service duration.",
   reservationFee: "1000",
+  amountPaid: "",
+  paymentDetails: "",
   rescheduleNoticeDays: "3",
   graceMinutes: "10–15",
   pauseLimitMinutes: "30",
@@ -104,6 +110,7 @@ export interface SaleForAgreement {
   package_name_snapshot: string | null;
   selling_price: unknown;
   discount: unknown;
+  amount_paid?: unknown;
   packages?: { included_services?: string | null } | null;
   sale_addons?: { name_snapshot: string; quantity?: unknown; total_price: unknown }[] | null;
 }
@@ -167,6 +174,7 @@ export function termsFromSale(
   defaults: Partial<AgreementTerms> | null | undefined,
   representativeName: string,
   extensions?: ExtensionAddon[] | null,
+  paymentDetails?: string | null,
 ): AgreementTerms {
   const addons = sale.sale_addons ?? [];
   const total = n(sale.selling_price) + addons.reduce((a, x) => a + n(x.total_price), 0) - n(sale.discount);
@@ -196,6 +204,8 @@ export function termsFromSale(
     packageLabel: label,
     inclusions,
     totalRate: String(total),
+    amountPaid: n(sale.amount_paid) > 0 ? String(n(sale.amount_paid)) : "",
+    paymentDetails: (paymentDetails ?? "").trim(),
     overtimeOptions,
     overtimeRate: plainHour ? String(n(plainHour.price)) : base.overtimeRate,
     // Only mention the Magnet overtime when this booking actually includes the Magnet add-on.
@@ -214,7 +224,9 @@ export type Block =
 /** The agreement's clauses, in order. Text can include **bold** parts. */
 export function agreementBlocks(t: AgreementTerms): Block[] {
   const reservation = n(t.reservationFee);
-  const balance = Math.max(n(t.totalRate) - reservation, 0);
+  const paid = n(t.amountPaid);
+  // With a downpayment on record, the balance is what is left after it; otherwise after the reservation fee.
+  const balance = Math.max(n(t.totalRate) - (paid > 0 ? paid : reservation), 0);
   const blocks: Block[] = [];
   let number = 0;
   const section = (title: string) => blocks.push({ kind: "heading", text: `${(number += 1)}. ${title}` });
@@ -235,12 +247,19 @@ export function agreementBlocks(t: AgreementTerms): Block[] {
   paragraph(`Total Package Rate: **${money(t.totalRate)}**${t.packageLabel ? ` (${t.packageLabel})` : ""}`);
   paragraph("Payment Terms:");
   bullet(`${money(reservation)} reservation fee to confirm the booking`);
-  bullet(`Remaining balance${balance > 0 ? ` (${money(balance)})` : ""} must be paid on or before the event day`);
+  if (paid > 0 && balance <= 0) bullet(`**Payment received: ${money(paid)}** — fully paid, no balance due`);
+  else if (paid > 0) bullet(`**Downpayment received: ${money(paid)}**`);
+  if (!(paid > 0 && balance <= 0)) bullet(`Remaining balance${balance > 0 ? ` (**${money(balance)}**)` : ""} must be paid on or before the event day`);
   if (t.includeUnpaidBalanceClause) bullet("Service may not start until the remaining balance has been paid");
   blocks.push({
     kind: "note",
     text: `**Reservation fee is non-refundable** but may be rescheduled once with at least ${t.rescheduleNoticeDays} days notice.`,
   });
+  const payTo = (t.paymentDetails ?? "").split("\n").map((x) => x.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  if (payTo.length > 0 && !(paid > 0 && balance <= 0)) {
+    paragraph("**Where to send payments:**");
+    payTo.forEach(bullet);
+  }
 
   section("Service Time & Pauses");
   paragraph("Photobooth service will start at the agreed service time and will run continuously for the full booked duration.");
@@ -381,6 +400,7 @@ export const BOOKING_FIELDS: [keyof AgreementTerms, string][] = [
   ["packageLabel", "package"],
   ["inclusions", "package inclusions"],
   ["totalRate", "total rate"],
+  ["amountPaid", "amount paid"],
   ["overtimeOptions", "overtime rates"],
 ];
 

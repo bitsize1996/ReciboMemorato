@@ -94,7 +94,7 @@ function AgreementPage() {
   // Fill the form once everything has loaded: saved terms win over a fresh draft.
   useEffect(() => {
     if (terms || !sale.data || biz.isPending || saved.isPending || addonCatalog.isPending) return;
-    const draft = termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "", extensions);
+    const draft = termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "", extensions, biz.data?.paymentInstructions);
     const storedTerms = saved.data?.row?.["terms"] as Partial<AgreementTerms> | undefined;
     setTerms(storedTerms && Object.keys(storedTerms).length > 0 ? { ...draft, ...storedTerms } : draft);
     setSignature(biz.data?.signatureImage || null);
@@ -118,7 +118,7 @@ function AgreementPage() {
   const fresh = useMemo(
     () =>
       sale.data
-        ? termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "", extensions)
+        ? termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "", extensions, biz.data?.paymentInstructions)
         : null,
     [sale.data, biz.data, extensions],
   );
@@ -283,6 +283,7 @@ function AgreementPage() {
             {field("Package shown on the agreement", "packageLabel", { wide: true })}
             {field("Total package rate (₱)", "totalRate", { type: "number" })}
             {field("Reservation fee (₱)", "reservationFee", { type: "number" })}
+            {field("Downpayment received so far (₱)", "amountPaid", { type: "number", placeholder: "Leave empty if nothing paid yet" })}
             {n(s["amount_paid"]) > 0 ? (
               <p className="adm-hint adm-wide">
                 Paid so far on this booking: <strong>{money(s["amount_paid"])}</strong>{" "}
@@ -292,6 +293,19 @@ function AgreementPage() {
               </p>
             ) : null}
             {field("Reschedule notice (days)", "rescheduleNoticeDays", { type: "number" })}
+            <label className="adm-wide">
+              Where to send payments (one per line)
+              <textarea
+                rows={3}
+                value={terms.paymentDetails ?? ""}
+                onChange={(e) => set("paymentDetails", e.target.value)}
+                placeholder={"GCash: 0917 000 0000 (Cherry Ann Osorio)\nBDO: 0000 0000 0000"}
+              />
+            </label>
+            <p className="adm-hint adm-wide">
+              The downpayment comes from the amount paid on this booking, and the payment details from Settings → Business details
+              ("How customers pay"). Change them there to update every new agreement.
+            </p>
           </section>
 
           <section className="adm-card adm-form">
