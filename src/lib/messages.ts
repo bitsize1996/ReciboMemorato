@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { n, peso, saleCode, statusLabel } from "./finance";
 import { inquiryCode, type InquiryRow } from "./inquiries";
+import { paymentSummary } from "./invoice-pdf";
 
 /** "RECIBO" + "MEMORATO" from the settings becomes "Recibo Memorato". */
 export function brandName(s?: { brandLine1?: string; brandLine2?: string } | null): string {
@@ -66,18 +67,21 @@ interface SaleLike {
   sale_addons?: { name_snapshot: string; quantity: unknown; total_price: unknown }[] | null;
 }
 
-export function invoiceMessage(sale: SaleLike, brand: string, paymentInstructions: string) {
+export function invoiceMessage(sale: SaleLike, brand: string, paymentInstructions: string, reservationFee?: number) {
   const addons = sale.sale_addons ?? [];
   const addonsTotal = addons.reduce((a, x) => a + n(x.total_price), 0);
   const total = n(sale.selling_price) + addonsTotal - n(sale.discount);
-  const balance = total - n(sale.amount_paid);
+  const paid = n(sale.amount_paid);
+  const balance = total - paid;
+  const isEvent = (sale.sale_type ?? "event") === "event";
+  const summary = paymentSummary(total, paid, isEvent, reservationFee);
   const when = [sale.event_date, sale.event_time].filter(Boolean).join(" · ");
   const lines = [
     `Hi ${sale.customer_name},`,
     "",
     `Here is your invoice ${saleCode(sale.sale_number)} from ${brand}.`,
     "",
-    ...((sale.sale_type ?? "event") === "event"
+    ...(isEvent
       ? [
           sale.event_name ? `Event: ${sale.event_name}${when ? ` (${when})` : ""}` : when ? `Event date: ${when}` : "",
           sale.event_theme ? `Theme: ${sale.event_theme}` : "",
@@ -91,10 +95,11 @@ export function invoiceMessage(sale: SaleLike, brand: string, paymentInstruction
     "",
     `Total: ${peso(total)}`,
     n(sale.discount) > 0 ? `(includes a discount of ${peso(sale.discount)})` : "",
-    `Paid so far: ${peso(sale.amount_paid)}`,
-    `Balance due: ${peso(balance)}`,
+    `${summary.paidLabel}: ${peso(paid)}`,
+    `${balance > 0 && paid > 0 ? "Remaining balance" : "Balance due"}: ${peso(balance)}`,
+    summary.downpaymentRequired ? `Downpayment to confirm your booking: ${peso(summary.downpaymentRequired)}` : "",
     `Status: ${statusLabel(sale.payment_status)}`,
-    paymentInstructions ? `\nHow to pay:\n${paymentInstructions}` : "",
+    paymentInstructions && balance > 0 ? `\nHow to pay:\n${paymentInstructions}` : "",
     "",
     "Thank you! Because memories need proofs.",
     brand,

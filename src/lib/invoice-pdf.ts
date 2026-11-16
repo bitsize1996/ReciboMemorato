@@ -14,10 +14,30 @@ export interface InvoiceData {
   discount: number;
   total: number;
   paid: number;
+  /** "Downpayment received", "Amount paid (fully paid)" or "Amount paid". */
+  paidLabel: string;
+  /** Downpayment still needed to confirm an event booking (only when nothing is paid yet). */
+  downpaymentRequired?: number | undefined;
   balance: number;
   status: string;
   paymentInstructions?: string | undefined;
   footer: string;
+}
+
+/**
+ * How the payment so far is described on invoices.
+ * - something paid but not all → "Downpayment received"
+ * - everything paid → "Amount paid (fully paid)"
+ * - nothing paid on an event booking → also shows the downpayment needed to confirm it
+ */
+export function paymentSummary(total: number, paid: number, isEvent: boolean, reservationFee?: number) {
+  const fee = reservationFee === undefined ? 1000 : n(reservationFee);
+  if (total > 0 && paid >= total) return { paidLabel: "Amount paid (fully paid)", downpaymentRequired: undefined };
+  if (paid > 0) return { paidLabel: "Downpayment received", downpaymentRequired: undefined };
+  return {
+    paidLabel: "Amount paid",
+    downpaymentRequired: isEvent && fee > 0 && total > 0 ? Math.min(fee, total) : undefined,
+  };
 }
 
 interface SaleForInvoice {
@@ -43,32 +63,33 @@ interface SaleForInvoice {
 
 export function invoiceDataFromSale(
   sale: SaleForInvoice,
-  options: { brand: string; tagline: string; paymentInstructions?: string },
+  options: { brand: string; tagline: string; paymentInstructions?: string; reservationFee?: number },
 ): InvoiceData {
   const addons = sale.sale_addons ?? [];
   const qty = n(sale.quantity) || 1;
   const subtotal = n(sale.selling_price) + addons.reduce((a, x) => a + n(x.total_price), 0);
   const total = subtotal - n(sale.discount);
+  const isEvent = (sale.sale_type ?? "event") === "event";
+  const summary = paymentSummary(total, n(sale.amount_paid), isEvent, options.reservationFee);
   return {
     brand: options.brand,
     tagline: options.tagline,
     code: saleCode(sale.sale_number),
     date: new Date().toISOString().slice(0, 10),
     customer: { name: sale.customer_name, contact: sale.customer_contact, email: sale.customer_email },
-    details:
-      (sale.sale_type ?? "event") === "event"
-        ? {
-            heading: "EVENT",
-            title: sale.event_name ?? "—",
-            lines: [
-              [sale.event_date ?? "Date to be confirmed", sale.event_time].filter(Boolean).join(" · "),
-              sale.event_theme ? `Theme: ${sale.event_theme}` : "",
-              sale.event_venue ? `Location: ${sale.event_venue}` : "",
-            ].filter(Boolean),
-          }
-        : sale.sale_type === "popup"
-          ? { heading: "POP-UP", title: sale.event_name ?? "Pop-up", lines: [`Date of sale: ${sale.booking_date ?? ""}`] }
-          : { heading: "DATE OF SALE", title: sale.booking_date ?? "", lines: [] },
+    details: isEvent
+      ? {
+          heading: "EVENT",
+          title: sale.event_name ?? "—",
+          lines: [
+            [sale.event_date ?? "Date to be confirmed", sale.event_time].filter(Boolean).join(" · "),
+            sale.event_theme ? `Theme: ${sale.event_theme}` : "",
+            sale.event_venue ? `Location: ${sale.event_venue}` : "",
+          ].filter(Boolean),
+        }
+      : sale.sale_type === "popup"
+        ? { heading: "POP-UP", title: sale.event_name ?? "Pop-up", lines: [`Date of sale: ${sale.booking_date ?? ""}`] }
+        : { heading: "DATE OF SALE", title: sale.booking_date ?? "", lines: [] },
     lines: [
       {
         description: sale.package_name_snapshot ?? "Photobooth service",
@@ -87,6 +108,8 @@ export function invoiceDataFromSale(
     discount: n(sale.discount),
     total,
     paid: n(sale.amount_paid),
+    paidLabel: summary.paidLabel,
+    downpaymentRequired: summary.downpaymentRequired,
     balance: total - n(sale.amount_paid),
     status: statusLabel(sale.payment_status),
     paymentInstructions: options.paymentInstructions,
@@ -209,7 +232,7 @@ function render(ctx: Ctx, d: InvoiceData): number {
   y += 36;
 
   // Totals
-  const xLabel = MARGIN + 640;
+  const xLabel = MARGIN + 560;
   const gap = 46;
   const totalRow = (label: string, value: string, bold = false, size = 26) => {
     text(label, xLabel, y, { size, bold });
@@ -225,15 +248,20 @@ function render(ctx: Ctx, d: InvoiceData): number {
   if (d.discount > 0) totalRow("Discount", `- ${peso(d.discount)}`);
   divider("#d8d4cc", 32);
   totalRow("Total", peso(d.total), true, 30);
-  totalRow("Amount paid", peso(d.paid));
+  totalRow(d.paidLabel || "Amount paid", peso(d.paid));
   divider("#1a1a1a", 34);
-  totalRow("Balance due", peso(d.balance), true, 32);
+  totalRow(d.balance > 0 && d.paid > 0 ? "Remaining balance" : "Balance due", peso(d.balance), true, 32);
+  if (d.downpaymentRequired && d.downpaymentRequired > 0) {
+    text("Downpayment to confirm booking", xLabel, y, { size: 24, color: "#6b6b6b" });
+    text(peso(d.downpaymentRequired), xAmount, y, { size: 24, color: "#6b6b6b", align: "right" });
+    y += gap;
+  }
 
   y += 4;
   text(`Status: ${d.status}`, MARGIN, y, { size: 24, color: "#6b6b6b" });
   y += 52;
 
-  if (d.paymentInstructions?.trim()) {
+  if (d.paymentInstructions?.trim() && d.balance > 0) {
     text("HOW TO PAY", MARGIN, y, { size: 18, bold: true, color: "#8a8a8a" });
     y += 36;
     ctx.font = `24px ${FONT}`;

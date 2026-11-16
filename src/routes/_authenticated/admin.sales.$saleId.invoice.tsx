@@ -38,20 +38,18 @@ function Invoice() {
   if (!q.data) return <div className="adm-page"><p>Sale not found.</p></div>;
   const s = q.data;
   const addonLines = s.sale_addons ?? [];
-  const addonsTotal = addonLines.reduce((a, x) => a + n(x.total_price), 0);
-  const subtotal = n(s.selling_price) + addonsTotal;
-  const net = subtotal - n(s.discount);
-  const balance = net - n(s.amount_paid);
   const unit = s.quantity ? n(s.selling_price) / s.quantity : n(s.selling_price);
   const payment = biz.data?.paymentInstructions ?? "";
-  const message = invoiceMessage(s as never, brandName(site.data), payment);
-  const pdfData = invoiceDataFromSale(s as never, {
-    brand: [site.data?.brandLine1 ?? "RECIBO", site.data?.brandLine2 ?? "MEMORATO"].join(" "),
-    tagline: (site.data?.brandSub ?? "by the bitsize sibs").toLowerCase(),
-    paymentInstructions: payment,
-  });
+  const reservationFee = n(biz.data?.agreementDefaults?.["reservationFee"] ?? 1000);
+  const message = invoiceMessage(s as never, brandName(site.data), payment, reservationFee);
   const brandUpper = [site.data?.brandLine1 ?? "RECIBO", site.data?.brandLine2 ?? "MEMORATO"].join(" ");
   const tagline = (site.data?.brandSub ?? "by the bitsize sibs").toLowerCase();
+  const pdfData = invoiceDataFromSale(s as never, {
+    brand: brandUpper,
+    tagline,
+    paymentInstructions: payment,
+    reservationFee,
+  });
   const mailUrl = gmailComposeUrl({
     from: biz.data?.email, to: s.customer_email ?? "", subject: message.subject, body: message.body,
   });
@@ -68,13 +66,7 @@ function Invoice() {
           >
             Copy invoice text
           </Button>
-          <Button
-            onClick={() =>
-              downloadInvoicePdf(invoiceDataFromSale(s as never, { brand: brandUpper, tagline, paymentInstructions: payment }))
-            }
-          >
-            Download PDF
-          </Button>
+          <Button onClick={() => downloadInvoicePdf(pdfData)}>Download PDF</Button>
           <Button variant="outline" onClick={() => window.print()}>Print</Button>
         </div>
       </div>
@@ -101,14 +93,18 @@ function Invoice() {
           </tbody>
         </table>
         <dl className="inv-totals">
-          <dt>Subtotal</dt><dd>{peso(subtotal)}</dd>
-          {n(s.discount) > 0 && <><dt>Discount</dt><dd>− {peso(s.discount)}</dd></>}
-          <dt><strong>Total</strong></dt><dd><strong>{peso(net)}</strong></dd>
-          <dt>Amount paid</dt><dd>{peso(s.amount_paid)}</dd>
-          <dt><strong>Balance due</strong></dt><dd><strong>{peso(balance)}</strong></dd>
+          <dt>Subtotal</dt><dd>{peso(pdfData.subtotal)}</dd>
+          {pdfData.discount > 0 && <><dt>Discount</dt><dd>− {peso(pdfData.discount)}</dd></>}
+          <dt><strong>Total</strong></dt><dd><strong>{peso(pdfData.total)}</strong></dd>
+          <dt>{pdfData.paidLabel}</dt><dd>{peso(pdfData.paid)}</dd>
+          <dt><strong>{pdfData.balance > 0 && pdfData.paid > 0 ? "Remaining balance" : "Balance due"}</strong></dt>
+          <dd><strong>{peso(pdfData.balance)}</strong></dd>
+          {pdfData.downpaymentRequired ? (
+            <><dt className="inv-muted">Downpayment to confirm booking</dt><dd className="inv-muted">{peso(pdfData.downpaymentRequired)}</dd></>
+          ) : null}
         </dl>
         <p className="inv-muted">Status: {statusLabel(s.payment_status)}</p>
-        {payment ? (
+        {payment && pdfData.balance > 0 ? (
           <div>
             <div className="inv-muted">How to pay</div>
             <p style={{ whiteSpace: "pre-line", margin: "4px 0 0" }}>{payment}</p>
