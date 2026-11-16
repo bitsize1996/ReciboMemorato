@@ -25,6 +25,11 @@ export interface AgreementTerms {
   overtimeRate: string;
   /** Extra overtime charge per hour when the package has the Magnet add-on. Leave empty to leave the sentence out. */
   magnetOvertime: string;
+  /**
+   * This package's own extension rates, one per line (for example
+   * "Additional hour + magnetic: ₱3,099 per hour"). When filled in, these replace the two amounts above.
+   */
+  overtimeOptions: string;
   spaceNeeded: string;
   powerNeeded: string;
   // Optional clauses
@@ -61,6 +66,7 @@ export const DEFAULT_TERMS = {
   extraPrintFee: "50",
   overtimeRate: "1000",
   magnetOvertime: "700",
+  overtimeOptions: "",
   spaceNeeded: "2.5m x 2.5m",
   powerNeeded: "One 220V power outlet",
   includeSetupClause: true,
@@ -102,12 +108,37 @@ export interface SaleForAgreement {
   sale_addons?: { name_snapshot: string; quantity?: unknown; total_price: unknown }[] | null;
 }
 
+/** An "extra time" add-on of the booked package (one with hours in it). */
+export interface ExtensionAddon {
+  name: string;
+  price: unknown;
+  extra_hours?: unknown;
+}
+
 /** "3 hours, 50 prints" or one item per line becomes a list of items. */
 export function splitList(text: string | null | undefined): string[] {
   return (text ?? "")
     .split(/\n|;|,/)
     .map((part) => part.replace(/^[-•*✓]\s*/, "").trim())
     .filter(Boolean);
+}
+
+/**
+ * The package's extension rates as agreement lines, cheapest first:
+ * "Additional hour (prints only) — High Angle 4R" at ₱2,499 becomes "Additional hour (prints only): ₱2,499 per hour".
+ */
+export function extensionLines(extensions: ExtensionAddon[] | null | undefined): string {
+  return [...(extensions ?? [])]
+    .filter((x) => n(x.extra_hours) > 0 && n(x.price) > 0)
+    .sort((a, b) => n(a.price) - n(b.price))
+    .map((x) => {
+      // The part after " — " only says which package it is for, which the agreement already shows.
+      const label = x.name.split(" — ")[0]!.trim() || x.name.trim();
+      const hours = n(x.extra_hours);
+      const per = hours === 1 ? "per hour" : `for ${hours} hours`;
+      return `${label}: ${money(x.price)} ${per}`;
+    })
+    .join("\n");
 }
 
 const clock = (minutes: number): string => {
@@ -127,11 +158,15 @@ export function serviceWindow(start: string | null | undefined, hours: number): 
   return `${clock(from)} – ${clock(from + hours * 60)}`;
 }
 
-/** A first draft of the terms for a booking, from the booking itself and your saved defaults. */
+/**
+ * A first draft of the terms for a booking, from the booking itself and your saved defaults.
+ * `extensions` are the booked package's extra-time add-ons; their prices become the overtime rates.
+ */
 export function termsFromSale(
   sale: SaleForAgreement,
   defaults: Partial<AgreementTerms> | null | undefined,
   representativeName: string,
+  extensions?: ExtensionAddon[] | null,
 ): AgreementTerms {
   const addons = sale.sale_addons ?? [];
   const total = n(sale.selling_price) + addons.reduce((a, x) => a + n(x.total_price), 0) - n(sale.discount);
@@ -143,6 +178,11 @@ export function termsFromSale(
     ...splitList(sale.packages?.included_services),
     ...addons.map((a) => `Add-on: ${a.name_snapshot}${n(a.quantity) > 1 ? ` × ${n(a.quantity)}` : ""}`),
   ].join("\n");
+  const overtimeOptions = extensionLines(extensions);
+  // The plain extra hour (no magnets) is this package's basic overtime rate.
+  const plainHour = (extensions ?? [])
+    .filter((x) => n(x.extra_hours) > 0 && n(x.price) > 0 && !/magnet/i.test(x.name))
+    .sort((a, b) => n(a.price) - n(b.price))[0];
   return {
     ...base,
     clientName: sale.customer_name,
@@ -156,6 +196,8 @@ export function termsFromSale(
     packageLabel: label,
     inclusions,
     totalRate: String(total),
+    overtimeOptions,
+    overtimeRate: plainHour ? String(n(plainHour.price)) : base.overtimeRate,
     // Only mention the Magnet overtime when this booking actually includes the Magnet add-on.
     magnetOvertime: hasMagnet ? base.magnetOvertime : "",
     representativeName: defaults?.representativeName ?? representativeName,
@@ -213,13 +255,21 @@ export function agreementBlocks(t: AgreementTerms): Block[] {
   );
 
   section("Overtime");
-  paragraph(
-    `Additional time will be charged at ${money(t.overtimeRate)} per hour.${
-      n(t.magnetOvertime) > 0
-        ? ` If your package includes the Magnet add-on, an additional ${money(t.magnetOvertime)} per hour will apply.`
-        : ""
-    } Overtime must be paid before the extension.`,
-  );
+  // One rate per line (amounts like ₱2,499 contain commas, so only new lines split them).
+  const options = (t.overtimeOptions ?? "").split("\n").map((x) => x.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  if (options.length > 0) {
+    paragraph(`If the service is extended, these rates apply for${t.packageLabel ? ` the **${t.packageLabel.split(" + ")[0]}** package` : " this package"}:`);
+    options.forEach(bullet);
+    paragraph("Overtime must be paid before the extension.");
+  } else {
+    paragraph(
+      `Additional time will be charged at ${money(t.overtimeRate)} per hour.${
+        n(t.magnetOvertime) > 0
+          ? ` If your package includes the Magnet add-on, an additional ${money(t.magnetOvertime)} per hour will apply.`
+          : ""
+      } Overtime must be paid before the extension.`,
+    );
+  }
 
   section("Client Requirements");
   paragraph(`Client agrees to provide: (1) Minimum ${t.spaceNeeded} space, (2) ${t.powerNeeded}, and (3) Safe and accessible area.`);
@@ -284,7 +334,7 @@ export const AGREEMENT_STATUSES = [
 export const agreementStatusLabel = (status: string | null | undefined) =>
   AGREEMENT_STATUSES.find(([key]) => key === status)?.[1] ?? "Draft";
 
-/** Terms worth reusing for every booking (not the client or event details). */
+/** Terms worth reusing for every booking (not the client or event details, nor one package's rates). */
 export function defaultsFromTerms(t: AgreementTerms): Partial<AgreementTerms> {
   return {
     businessName: t.businessName,
@@ -331,9 +381,11 @@ export const BOOKING_FIELDS: [keyof AgreementTerms, string][] = [
   ["packageLabel", "package"],
   ["inclusions", "package inclusions"],
   ["totalRate", "total rate"],
+  ["overtimeOptions", "overtime rates"],
 ];
 
 /** Which booking details differ between a saved agreement and the booking as it is now. */
 export function bookingChanges(fresh: AgreementTerms, saved: Partial<AgreementTerms>): [keyof AgreementTerms, string][] {
-  return BOOKING_FIELDS.filter(([key]) => String(fresh[key] ?? "") !== String(saved[key] ?? ""));
+  // Fields an older saved agreement never had are filled in from the booking anyway, so they don't count as changes.
+  return BOOKING_FIELDS.filter(([key]) => key in saved && String(fresh[key] ?? "") !== String(saved[key] ?? ""));
 }

@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useAddons } from "@/lib/admin-data";
 import {
   AGREEMENT_STATUSES,
   type AgreementTerms,
+  type ExtensionAddon,
   agreementStatusLabel,
   bookingChanges,
   defaultsFromTerms,
+  extensionLines,
   money,
   termsFromSale,
 } from "@/lib/agreement";
@@ -42,6 +45,7 @@ function AgreementPage() {
   const qc = useQueryClient();
   const biz = useBusinessInfo();
   const site = useQuery(siteSettingsQuery);
+  const addonCatalog = useAddons();
 
   const sale = useQuery({
     queryKey: ["biz", "sale", saleId, "agreement-source"],
@@ -69,6 +73,18 @@ function AgreementPage() {
     },
   });
 
+  // The booked package's extra-time add-ons (for example "Additional hour + magnetic"): their prices are the overtime rates.
+  const packageId = (sale.data?.["package_id"] as string | null | undefined) ?? null;
+  const extensions = useMemo<ExtensionAddon[]>(
+    () =>
+      (addonCatalog.data?.rows ?? []).filter((a) => {
+        if (!a.active || !(n(a.extra_hours) > 0)) return false;
+        const applies = a.applies_to ?? [];
+        return applies.length === 0 || (packageId !== null && applies.includes(packageId));
+      }),
+    [addonCatalog.data, packageId],
+  );
+
   const [terms, setTerms] = useState<AgreementTerms | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -77,12 +93,12 @@ function AgreementPage() {
 
   // Fill the form once everything has loaded: saved terms win over a fresh draft.
   useEffect(() => {
-    if (terms || !sale.data || biz.isPending || saved.isPending) return;
-    const draft = termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "");
+    if (terms || !sale.data || biz.isPending || saved.isPending || addonCatalog.isPending) return;
+    const draft = termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "", extensions);
     const storedTerms = saved.data?.row?.["terms"] as Partial<AgreementTerms> | undefined;
     setTerms(storedTerms && Object.keys(storedTerms).length > 0 ? { ...draft, ...storedTerms } : draft);
     setSignature(biz.data?.signatureImage || null);
-  }, [terms, sale.data, biz.isPending, biz.data, saved.isPending, saved.data]);
+  }, [terms, sale.data, biz.isPending, biz.data, saved.isPending, saved.data, addonCatalog.isPending, extensions]);
 
   // A live preview that follows every change.
   useEffect(() => {
@@ -102,9 +118,9 @@ function AgreementPage() {
   const fresh = useMemo(
     () =>
       sale.data
-        ? termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "")
+        ? termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "", extensions)
         : null,
-    [sale.data, biz.data],
+    [sale.data, biz.data, extensions],
   );
   const [dismissed, setDismissed] = useState(false);
   const savedTerms = saved.data?.row?.["terms"] as Partial<AgreementTerms> | undefined;
@@ -120,6 +136,7 @@ function AgreementPage() {
   const status = (saved.data?.row?.["status"] as string | undefined) ?? "draft";
   const fileName = `Service-Agreement-${saleCode(s["sale_number"]).replace("#", "")}-${terms.clientName.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").slice(0, 30)}.pdf`;
   const brand = brandName(site.data);
+  const packageRates = extensionLines(extensions);
 
   async function downloadPdf() {
     setBusy(true);
@@ -287,9 +304,36 @@ function AgreementPage() {
 
           <section className="adm-card adm-form">
             <h2>Overtime</h2>
-            {field("Overtime per hour (₱)", "overtimeRate", { type: "number" })}
-            {field("Extra per hour with the Magnet add-on (₱)", "magnetOvertime", { type: "number", placeholder: "Leave empty to leave it out" })}
-            <p className="adm-hint adm-wide">The Magnet sentence only appears when an amount is filled in. It starts filled in only when the booking includes a Magnet package or add-on.</p>
+            <label className="adm-wide">
+              This package's extension rates (one per line)
+              <textarea
+                rows={4}
+                value={terms.overtimeOptions ?? ""}
+                onChange={(e) => set("overtimeOptions", e.target.value)}
+                placeholder={"Additional hour: ₱2,499 per hour\nAdditional hour + magnetic: ₱3,099 per hour"}
+              />
+            </label>
+            <p className="adm-hint adm-wide">
+              Filled in from this package's extra-hour add-ons in Packages → Add-ons (only the ones ticked for this package).
+              {packageRates && packageRates !== (terms.overtimeOptions ?? "") ? (
+                <>
+                  {" "}
+                  <button type="button" className="admin-link" onClick={() => set("overtimeOptions", packageRates)}>
+                    Use the package's current rates
+                  </button>
+                </>
+              ) : null}
+            </p>
+            {(terms.overtimeOptions ?? "").trim() ? null : (
+              <>
+                {field("Overtime per hour (₱)", "overtimeRate", { type: "number" })}
+                {field("Extra per hour with the Magnet add-on (₱)", "magnetOvertime", { type: "number", placeholder: "Leave empty to leave it out" })}
+                <p className="adm-hint adm-wide">
+                  This package has no extra-hour add-ons, so these two amounts are used instead. The Magnet sentence only appears when
+                  an amount is filled in.
+                </p>
+              </>
+            )}
           </section>
 
           <section className="adm-card adm-form">
