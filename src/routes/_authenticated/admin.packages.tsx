@@ -140,12 +140,15 @@ function PackagePhotos({ packageId }: { packageId: string }) {
   );
 }
 
-type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean; extra_hours: string };
-const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true, extra_hours: "" };
+type AddonForm = { id?: string; name: string; description: string; price: string; sort_order: string; active: boolean; extra_hours: string; cost: string; applies_to: string[] };
+const EMPTY_ADDON: AddonForm = { name: "", description: "", price: "0", sort_order: "0", active: true, extra_hours: "", cost: "0", applies_to: [] };
 
 function AddonsSection() {
   const qc = useQueryClient();
   const addons = useAddons();
+  const packages = usePackages();
+  const eventPackages = (packages.data ?? []).filter((p: any) => p.service_type === "event");
+  const packageName = (id: string) => (packages.data ?? []).find((p) => p.id === id)?.name ?? "Removed package";
   const [form, setForm] = useState<AddonForm | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const rows = addons.data?.rows ?? [];
@@ -158,6 +161,7 @@ function AddonsSection() {
       name: form.name.trim(), description: form.description.trim() || null,
       price: n(form.price), sort_order: Math.round(n(form.sort_order)), active: form.active,
       extra_hours: n(form.extra_hours) > 0 ? n(form.extra_hours) : null,
+      cost: n(form.cost), applies_to: form.applies_to,
     };
     const table = (supabase as any).from("addons");
     const { error } = form.id ? await table.update(payload).eq("id", form.id) : await table.insert(payload);
@@ -192,6 +196,20 @@ function AddonsSection() {
         <form className="adm-form" onSubmit={save}>
           <label>Add-on name<input required value={form.name} placeholder="Extra hour, 20 extra prints…" onChange={(e) => set("name", e.target.value)} /></label>
           <label>Price (₱)<input type="number" step="0.01" min="0" value={form.price} onChange={(e) => set("price", e.target.value)} /></label>
+          <label>Cost to you (₱)<input type="number" step="0.01" min="0" value={form.cost} onChange={(e) => set("cost", e.target.value)} /></label>
+          <fieldset className="adm-wide">
+            <legend>Applies to</legend>
+            {eventPackages.map((p) => (
+              <label key={p.id} className="adm-check">
+                <input
+                  type="checkbox"
+                  checked={form.applies_to.includes(p.id)}
+                  onChange={(e) => setForm((f) => (f ? { ...f, applies_to: e.target.checked ? [...f.applies_to, p.id] : f.applies_to.filter((x) => x !== p.id) } : f))}
+                /> {p.name}
+              </label>
+            ))}
+            <small className="adm-hint">Leave all unticked to offer it with every package.</small>
+          </fieldset>
           <label className="adm-wide">What it includes<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
           <label>Hours this add-on adds (for extra-hour add-ons)<input type="number" step="0.5" min="0" value={form.extra_hours} placeholder="Leave empty if it adds no time" onChange={(e) => set("extra_hours", e.target.value)} /></label>
           <label>Order on the form (lower shows first)<input type="number" value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
@@ -208,14 +226,17 @@ function AddonsSection() {
       {addons.data?.ready && !rows.length && !form ? <p className="adm-empty">No add-ons yet.</p> : null}
       {rows.length > 0 && (
         <table className="adm-table">
-          <thead><tr><th>Add-on</th><th>Price</th><th>Shown</th><th /></tr></thead>
+          <thead><tr><th>Add-on</th><th>Price</th><th>Cost</th><th>Profit</th><th>Applies to</th><th>Shown</th><th /></tr></thead>
           <tbody>{rows.map((a) => (
             <tr key={a.id}>
               <td>{a.name}{a.description ? <small className="adm-hint"> — {a.description}</small> : null}</td>
               <td>{peso(a.price)}</td>
+              <td>{peso(n(a.cost))}</td>
+              <td className={n(a.price) - n(a.cost) < 0 ? "adm-neg" : ""}>{peso(n(a.price) - n(a.cost))}</td>
+              <td>{(a.applies_to ?? []).length === 0 ? "All packages" : (a.applies_to ?? []).map(packageName).join(", ")}</td>
               <td>{a.active ? "Yes" : "Hidden"}</td>
               <td className="adm-actions">
-                <button onClick={() => setForm({ id: a.id, name: a.name, description: a.description ?? "", price: String(a.price), sort_order: String(a.sort_order), active: a.active, extra_hours: a.extra_hours ? String(a.extra_hours) : "" })}>Edit</button>
+                <button onClick={() => setForm({ id: a.id, name: a.name, description: a.description ?? "", price: String(a.price), sort_order: String(a.sort_order), active: a.active, extra_hours: a.extra_hours ? String(a.extra_hours) : "", cost: String(a.cost ?? 0), applies_to: a.applies_to ?? [] })}>Edit</button>
                 <button onClick={() => remove(a.id)}>Delete</button>
               </td>
             </tr>

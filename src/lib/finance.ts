@@ -18,7 +18,7 @@ export interface SaleTotalsInput {
   discount: unknown;
   sale_materials?: { total_cost: unknown }[] | null;
   sale_expenses?: { amount: unknown }[] | null;
-  sale_addons?: { total_price: unknown }[] | null;
+  sale_addons?: { total_price: unknown; total_cost?: unknown }[] | null;
 }
 
 export function saleTotals(s: SaleTotalsInput) {
@@ -26,9 +26,10 @@ export function saleTotals(s: SaleTotalsInput) {
   const netRevenue = n(s.selling_price) + addons - n(s.discount);
   const materials = (s.sale_materials ?? []).reduce((a, m) => a + n(m.total_cost), 0);
   const expenses = (s.sale_expenses ?? []).reduce((a, e) => a + n(e.amount), 0);
-  const totalCost = materials + expenses;
+  const addonCosts = (s.sale_addons ?? []).reduce((a, x) => a + n(x.total_cost), 0);
+  const totalCost = materials + expenses + addonCosts;
   const profit = netRevenue - totalCost;
-  return { netRevenue, addons, materials, expenses, totalCost, profit, margin: margin(profit, netRevenue) };
+  return { netRevenue, addons, addonCosts, materials, expenses, totalCost, profit, margin: margin(profit, netRevenue) };
 }
 
 export const PAYMENT_STATUSES = [

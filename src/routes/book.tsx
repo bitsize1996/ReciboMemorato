@@ -1,7 +1,7 @@
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { MessageCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { peso } from "@/lib/finance";
@@ -108,13 +108,29 @@ function BookPage() {
   const today = new Date().toISOString().slice(0, 10);
   // Steps are numbered in the order they appear, skipping the ones with nothing to show.
   const hasBackdrops = options.backdrops.length > 0;
+  const visibleAddons = options.addons.filter((a) => a.appliesTo.length === 0 || (form.packageId !== "" && a.appliesTo.includes(form.packageId)));
+  const addonsNeedPackage = options.addons.some((a) => a.appliesTo.length > 0) && form.packageId === "";
+  useEffect(() => {
+    setAddonQty((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const a of options.addons) {
+        const fits = a.appliesTo.length === 0 || (form.packageId !== "" && a.appliesTo.includes(form.packageId));
+        if (!fits && (next[a.id] ?? 0) > 0) {
+          next[a.id] = 0;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [form.packageId, options.addons]);
   const step = (() => {
     let next = 2;
     const take = () => String(++next).padStart(2, "0");
     return {
       backdrop: hasBackdrops ? take() : "",
       packages: options.packages.length > 0 ? take() : "",
-      addons: options.addons.length > 0 ? take() : "",
+      addons: visibleAddons.length > 0 ? take() : "",
       notes: take(),
     };
   })();
@@ -130,7 +146,7 @@ function BookPage() {
     ? `${s.messengerUrl}${s.messengerUrl.includes("?") ? "&" : "?"}ref=${encodeURIComponent(reference)}`
     : s.messengerUrl;
   const chosenPackage = options.packages.find((p) => p.id === form.packageId);
-  const chosenAddons = options.addons.filter((a) => (addonQty[a.id] ?? 0) > 0);
+  const chosenAddons = visibleAddons.filter((a) => (addonQty[a.id] ?? 0) > 0);
   const estimate =
     (chosenPackage?.price ?? 0) +
     chosenAddons.reduce((sum, a) => sum + a.price * (addonQty[a.id] ?? 0), 0);
@@ -464,11 +480,20 @@ function BookPage() {
               </>
             ) : null}
 
-            {options.addons.length > 0 ? (
+            {visibleAddons.length === 0 && addonsNeedPackage ? (
+              <>
+                <SectionTitle number={step.addons}>Add-ons (optional)</SectionTitle>
+                <p className="admin-wide" style={{ color: "var(--muted-foreground)", margin: 0 }}>
+                  Choose a package above to see its add-ons.
+                </p>
+              </>
+            ) : null}
+
+            {visibleAddons.length > 0 ? (
               <>
                 <SectionTitle number={step.addons}>Add-ons (optional)</SectionTitle>
                 <div className="admin-wide" style={{ display: "grid", gap: 10 }}>
-                  {options.addons.map((addon) => {
+                  {visibleAddons.map((addon) => {
                     const qty = addonQty[addon.id] ?? 0;
                     return (
                       <div

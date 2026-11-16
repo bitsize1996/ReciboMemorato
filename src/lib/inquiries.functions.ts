@@ -14,6 +14,7 @@ export interface BookingAddon {
   name: string;
   description: string | null;
   price: number;
+  appliesTo: string[];
 }
 
 export interface BookingBackdrop {
@@ -59,12 +60,17 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
       const [cats, pkgs, adds, backs] = await Promise.all([
         db.from("event_categories").select("name, sort_order").order("sort_order", { ascending: true }),
         loadPackages(),
-        db
-          .from("addons")
-          .select("id, name, description, price")
-          .eq("active", true)
-          .order("sort_order", { ascending: true })
-          .order("name", { ascending: true }),
+        (async () => {
+          const addonQuery = (cols: string) =>
+            db
+              .from("addons")
+              .select(cols)
+              .eq("active", true)
+              .order("sort_order", { ascending: true })
+              .order("name", { ascending: true });
+          const withApplies = await addonQuery("id, name, description, price, applies_to");
+          return withApplies.error ? await addonQuery("id, name, description, price") : withApplies;
+        })(),
         db
           .from("backdrops")
           .select("id, name, category, image_url")
@@ -92,6 +98,7 @@ export const getBookingOptions = createServerFn({ method: "GET" }).handler(
         name: a.name,
         description: a.description ?? null,
         price: Number(a.price) || 0,
+        appliesTo: Array.isArray(a.applies_to) ? a.applies_to : [],
       }));
     } catch (err) {
       console.error("Failed to load booking options", err);

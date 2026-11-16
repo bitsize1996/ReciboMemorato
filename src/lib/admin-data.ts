@@ -14,7 +14,8 @@ export function useSales() {
       // Add-ons only exist once their database setup has been run; fall back without them.
       const run = (fields: string) =>
         (supabase as any).from("sales").select(fields).order("booking_date", { ascending: false });
-      let result = await run("*, packages(name, service_type), sale_materials(total_cost), sale_expenses(amount), sale_addons(total_price)");
+      let result = await run("*, packages(name, service_type), sale_materials(total_cost), sale_expenses(amount), sale_addons(total_price, total_cost)");
+      if (result.error) result = await run("*, packages(name, service_type), sale_materials(total_cost), sale_expenses(amount), sale_addons(total_price)");
       if (result.error) result = await run("*, packages(name, service_type), sale_materials(total_cost), sale_expenses(amount)");
       if (result.error) throw result.error;
       type Row = Database["public"]["Tables"]["sales"]["Row"] & {
@@ -97,6 +98,8 @@ export interface AddonRow {
   active: boolean;
   sort_order: number;
   extra_hours?: number | null;
+  applies_to?: string[] | null;
+  cost?: number | null;
 }
 
 /** Add-ons you offer (empty until their database setup has been run). */

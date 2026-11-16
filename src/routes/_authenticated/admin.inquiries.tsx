@@ -349,6 +349,7 @@ function Detail({ row }: { row: InquiryRow }) {
         chosenAddons.map((a) => ({
           sale_id: data.id, addon_id: a.addon_id, name_snapshot: a.name_snapshot,
           unit_price_snapshot: n(a.price_snapshot), quantity: n(a.quantity),
+          unit_cost_snapshot: n(addons.data?.rows.find((c) => c.id === a.addon_id)?.cost ?? 0),
         })),
       );
     }
@@ -488,7 +489,7 @@ function Detail({ row }: { row: InquiryRow }) {
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select value={addonPick.id} onChange={(e) => setAddonPick({ ...addonPick, id: e.target.value })}>
               <option value="">Add an add-on…</option>
-              {addons.data.rows.filter((a) => a.active).map((a) => (
+              {addons.data.rows.filter((a) => a.active && (!row.package_id || (a.applies_to ?? []).length === 0 || (a.applies_to ?? []).includes(row.package_id))).map((a) => (
                 <option key={a.id} value={a.id}>{a.name} — {peso(a.price)}</option>
               ))}
             </select>

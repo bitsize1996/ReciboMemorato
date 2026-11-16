@@ -46,7 +46,7 @@ function SaleDetail() {
         packages: { name: string } | null;
         sale_materials: Database["public"]["Tables"]["sale_materials"]["Row"][];
         sale_expenses: Database["public"]["Tables"]["sale_expenses"]["Row"][];
-        sale_addons?: { id: string; name_snapshot: string; unit_price_snapshot: number; quantity: number; total_price: number }[];
+        sale_addons?: { id: string; name_snapshot: string; unit_price_snapshot: number; quantity: number; total_price: number; unit_cost_snapshot: number; total_cost: number }[];
         event_theme?: string | null;
         event_venue?: string | null;
         backdrop?: string | null;
@@ -263,7 +263,7 @@ function SaleDetail() {
     if (!a || n(addonPick.quantity) <= 0) return setErr("Choose an add-on and a quantity.");
     const { error } = await (supabase as any).from("sale_addons").insert({
       sale_id: s.id, addon_id: a.id, name_snapshot: a.name,
-      unit_price_snapshot: n(a.price), quantity: n(addonPick.quantity),
+      unit_price_snapshot: n(a.price), quantity: n(addonPick.quantity), unit_cost_snapshot: n(a.cost),
     });
     if (error) return setErr(error.message);
     setAddonPick(null); setErr(null); refresh();
@@ -484,7 +484,7 @@ function SaleDetail() {
             <label>Add-on
               <select required value={addonPick.addon_id} onChange={(e) => setAddonPick({ ...addonPick, addon_id: e.target.value })}>
                 <option value="">Choose add-on…</option>
-                {(addonCatalog.data?.rows ?? []).filter((a) => a.active).map((a) => (
+                {(addonCatalog.data?.rows ?? []).filter((a) => a.active && (!s.package_id || (a.applies_to ?? []).length === 0 || (a.applies_to ?? []).includes(s.package_id))).map((a) => (
                   <option key={a.id} value={a.id}>{a.name} — {peso(a.price)}</option>
                 ))}
               </select>
@@ -495,14 +495,14 @@ function SaleDetail() {
         )}
         {!(s.sale_addons?.length) ? <p className="adm-empty">No add-ons on this booking.</p> : (
           <table className="adm-table">
-            <thead><tr><th>Add-on</th><th>Qty</th><th>Price</th><th>Total</th><th /></tr></thead>
+            <thead><tr><th>Add-on</th><th>Qty</th><th>Price</th><th>Total</th><th>Cost</th><th /></tr></thead>
             <tbody>{s.sale_addons!.map((a) => (
-              <tr key={a.id}><td>{a.name_snapshot}</td><td><input type="number" step="1" min="1" style={{ width: 70 }} defaultValue={n(a.quantity)} aria-label="Quantity" onBlur={(e) => n(e.target.value) > 0 && n(e.target.value) !== n(a.quantity) && updateLine("sale_addons", a.id, { quantity: n(e.target.value) })} /></td><td>{peso(a.unit_price_snapshot)}</td><td>{peso(a.total_price)}</td>
+              <tr key={a.id}><td>{a.name_snapshot}</td><td><input type="number" step="1" min="1" style={{ width: 70 }} defaultValue={n(a.quantity)} aria-label="Quantity" onBlur={(e) => n(e.target.value) > 0 && n(e.target.value) !== n(a.quantity) && updateLine("sale_addons", a.id, { quantity: n(e.target.value) })} /></td><td>{peso(a.unit_price_snapshot)}</td><td>{peso(a.total_price)}</td><td>{peso(a.total_cost)}</td>
                 <td className="adm-actions"><button onClick={() => del("sale_addons", a.id)}>Remove</button></td></tr>
             ))}</tbody>
           </table>
         )}
-        <p><strong>Total add-ons: {peso(t.addons)}</strong></p>
+        <p><strong>Total add-ons: {peso(t.addons)}</strong> &nbsp; Add-on costs: {peso(t.addonCosts)}</p>
       </section>
 
       <section className="adm-card">
@@ -588,7 +588,7 @@ function SaleDetail() {
               style={{ display: "flex", height: 18, borderRadius: 9, overflow: "hidden", background: "#e2e8f0", margin: "8px 0" }}
             >
               <div style={{ width: `${Math.min(share(t.materials), 100)}%`, background: "#b7791f" }} />
-              <div style={{ width: `${Math.min(share(t.expenses), Math.max(100 - share(t.materials), 0))}%`, background: "#2b6cb0" }} />
+              <div style={{ width: `${Math.min(share(t.expenses + t.addonCosts), Math.max(100 - share(t.materials), 0))}%`, background: "#2b6cb0" }} />
               <div style={{ width: `${Math.max(100 - share(t.totalCost), 0)}%`, background: "#2f855a" }} />
             </div>
             <p className="adm-hint">
@@ -608,6 +608,7 @@ function SaleDetail() {
                 {Object.entries(expenseByCategory).map(([category, amount]) => (
                   <tr key={category}><td>&nbsp;&nbsp;↳ {category}</td><td>{peso(amount)}</td><td>{share(amount).toFixed(1)}%</td></tr>
                 ))}
+                <tr><td><strong>Add-on costs</strong></td><td>{peso(t.addonCosts)}</td><td>{share(t.addonCosts).toFixed(1)}%</td></tr>
                 <tr><td><strong>Net profit</strong></td><td className={t.profit < 0 ? "adm-neg" : ""}><strong>{peso(t.profit)}</strong></td><td>{share(t.profit).toFixed(1)}%</td></tr>
               </tbody>
             </table>
@@ -621,6 +622,7 @@ function SaleDetail() {
           <dt>Net revenue</dt><dd>{peso(t.netRevenue)}</dd>
           <dt>Less materials</dt><dd>− {peso(t.materials)}</dd>
           <dt>Less operation costs &amp; expenses</dt><dd>− {peso(t.expenses)}</dd>
+          <dt>Less add-on costs</dt><dd>− {peso(t.addonCosts)}</dd>
           <dt>Total costs</dt><dd>{peso(t.totalCost)}</dd>
           <dt><strong>Net profit</strong></dt><dd className={t.profit < 0 ? "adm-neg" : ""}><strong>{peso(t.profit)}</strong></dd>
           <dt>Profit margin</dt><dd>{pct(t.margin)}</dd>
