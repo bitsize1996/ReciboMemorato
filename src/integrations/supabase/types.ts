@@ -17,6 +17,8 @@ export type Database = {
       addons: {
         Row: {
           active: boolean
+          applies_to: string[]
+          cost: number
           created_at: string
           description: string | null
           extra_hours: number | null
@@ -28,6 +30,8 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          applies_to?: string[]
+          cost?: number
           created_at?: string
           description?: string | null
           extra_hours?: number | null
@@ -39,6 +43,8 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          applies_to?: string[]
+          cost?: number
           created_at?: string
           description?: string | null
           extra_hours?: number | null
@@ -849,7 +855,9 @@ export type Database = {
           name_snapshot: string
           quantity: number
           sale_id: string
+          total_cost: number | null
           total_price: number | null
+          unit_cost_snapshot: number
           unit_price_snapshot: number
         }
         Insert: {
@@ -859,7 +867,9 @@ export type Database = {
           name_snapshot: string
           quantity?: number
           sale_id: string
+          total_cost?: number | null
           total_price?: number | null
+          unit_cost_snapshot?: number
           unit_price_snapshot?: number
         }
         Update: {
@@ -869,7 +879,9 @@ export type Database = {
           name_snapshot?: string
           quantity?: number
           sale_id?: string
+          total_cost?: number | null
           total_price?: number | null
+          unit_cost_snapshot?: number
           unit_price_snapshot?: number
         }
         Relationships: [
