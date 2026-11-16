@@ -6,7 +6,7 @@ export interface InvoiceData {
   tagline: string;
   code: string;
   date: string;
-  customer: { name: string; contact?: string | null; email?: string | null };
+  customer: { name: string; contact?: string | null | undefined; email?: string | null | undefined };
   /** The right-hand block: event details for a photobooth sale, the date of sale otherwise. */
   details: { heading: string; title: string; lines: string[] };
   lines: { description: string; qty: number; unit: number; amount: number }[];

@@ -79,7 +79,7 @@ function AgreementPage() {
   useEffect(() => {
     if (terms || !sale.data || biz.isPending || saved.isPending) return;
     const draft = termsFromSale(sale.data as never, biz.data?.agreementDefaults as never, biz.data?.representativeName ?? "");
-    const storedTerms = saved.data?.row?.terms as Partial<AgreementTerms> | undefined;
+    const storedTerms = saved.data?.row?.["terms"] as Partial<AgreementTerms> | undefined;
     setTerms(storedTerms && Object.keys(storedTerms).length > 0 ? { ...draft, ...storedTerms } : draft);
     setSignature(biz.data?.signatureImage || null);
   }, [terms, sale.data, biz.isPending, biz.data, saved.isPending, saved.data]);
@@ -107,7 +107,7 @@ function AgreementPage() {
     [sale.data, biz.data],
   );
   const [dismissed, setDismissed] = useState(false);
-  const savedTerms = saved.data?.row?.terms as Partial<AgreementTerms> | undefined;
+  const savedTerms = saved.data?.row?.["terms"] as Partial<AgreementTerms> | undefined;
   const changes = fresh && savedTerms && Object.keys(savedTerms).length > 0 ? bookingChanges(fresh, savedTerms) : [];
 
   const set = <K extends keyof AgreementTerms>(key: K, value: AgreementTerms[K]) =>
@@ -117,8 +117,8 @@ function AgreementPage() {
   if (!sale.data) return <div className="adm-page"><p>Booking not found.</p></div>;
 
   const s = sale.data;
-  const status = (saved.data?.row?.status as string | undefined) ?? "draft";
-  const fileName = `Service-Agreement-${saleCode(s.sale_number).replace("#", "")}-${terms.clientName.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").slice(0, 30)}.pdf`;
+  const status = (saved.data?.row?.["status"] as string | undefined) ?? "draft";
+  const fileName = `Service-Agreement-${saleCode(s["sale_number"]).replace("#", "")}-${terms.clientName.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").slice(0, 30)}.pdf`;
   const brand = brandName(site.data);
 
   async function downloadPdf() {
@@ -395,8 +395,8 @@ function AgreementPage() {
             </div>
             <label className="adm-wide">
               Status: <strong>{agreementStatusLabel(status)}</strong>
-              {saved.data?.row?.sent_at ? <small className="adm-hint"> · sent {new Date(saved.data.row.sent_at).toLocaleDateString()}</small> : null}
-              {saved.data?.row?.signed_at ? <small className="adm-hint"> · signed {new Date(saved.data.row.signed_at).toLocaleDateString()}</small> : null}
+              {saved.data?.row?.["sent_at"] ? <small className="adm-hint"> · sent {new Date(saved.data.row["sent_at"]).toLocaleDateString()}</small> : null}
+              {saved.data?.row?.["signed_at"] ? <small className="adm-hint"> · signed {new Date(saved.data.row["signed_at"]).toLocaleDateString()}</small> : null}
             </label>
             <div className="adm-row adm-wide">
               {AGREEMENT_STATUSES.map(([key, label]) => (

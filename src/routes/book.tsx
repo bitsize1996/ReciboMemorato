@@ -30,7 +30,7 @@ export const Route = createFileRoute("/book")({
       { property: "og:type", content: "website" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { package?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { package?: string | undefined } => ({
     package: typeof search["package"] === "string" ? search["package"] : undefined,
   }),
   loader: ({ context }) =>

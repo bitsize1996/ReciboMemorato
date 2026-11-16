@@ -9,7 +9,7 @@ function EventBookings() {
 
 export const Route = createFileRoute("/_authenticated/admin/sales/events")({
   head: () => ({ meta: [{ title: "Event bookings | Recibo Memorato Admin" }, { name: "robots", content: "noindex" }] }),
-  validateSearch: (search: Record<string, unknown>): { add?: boolean } => ({
+  validateSearch: (search: Record<string, unknown>): { add?: boolean | undefined } => ({
     add: search["add"] === true || search["add"] === "true" || search["add"] === "1" ? true : undefined,
   }),
   component: EventBookings,

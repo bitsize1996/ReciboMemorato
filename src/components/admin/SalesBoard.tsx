@@ -44,7 +44,7 @@ const SECTION: Record<string, { title: string; hint: string; add: string; search
 };
 
 /** The Sales list. With `kind` it shows one kind of sale only, with columns that suit it. */
-export function SalesBoard({ kind, startAdding }: { kind?: SaleType; startAdding?: boolean }) {
+export function SalesBoard({ kind, startAdding }: { kind?: SaleType | undefined; startAdding?: boolean | undefined }) {
   const copy = SECTION[kind ?? "all"]!;
   const sales = useSales();
   const packages = usePackages();
@@ -172,7 +172,7 @@ export function SalesBoard({ kind, startAdding }: { kind?: SaleType; startAdding
 type Line = { material_id: string; name: string; quantity: string; unit_cost: string };
 type OpLine = { category: string; description: string; amount: string };
 
-function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleType }) {
+function SaleForm({ onDone, fixedType }: { onDone: () => void; fixedType?: SaleType | undefined }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const packages = usePackages();

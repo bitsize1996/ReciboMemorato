@@ -213,12 +213,6 @@ function AddonsSection() {
           <label className="adm-wide">What it includes<textarea value={form.description} onChange={(e) => set("description", e.target.value)} /></label>
           <label>Hours this add-on adds (for extra-hour add-ons)<input type="number" step="0.5" min="0" value={form.extra_hours} placeholder="Leave empty if it adds no time" onChange={(e) => set("extra_hours", e.target.value)} /></label>
           <label>Order on the form (lower shows first)<input type="number" value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} /></label>
-          {form.service_type === "event" && (
-            <label>Hours of service included
-              <input type="number" step="0.5" min="0" value={form.service_hours} placeholder="e.g. 2" onChange={(e) => set("service_hours", e.target.value)} />
-              <small className="adm-hint">Used for the booking's service time and the service agreement.</small>
-            </label>
-          )}
           <label className="adm-check"><input type="checkbox" checked={form.active} onChange={(e) => set("active", e.target.checked)} /> Show on the booking form</label>
           <div className="adm-row"><Button type="submit">Save</Button><Button type="button" variant="outline" onClick={() => setForm(null)}>Cancel</Button></div>
         </form>
