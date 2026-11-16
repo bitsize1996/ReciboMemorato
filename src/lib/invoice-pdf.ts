@@ -16,7 +16,7 @@ export interface InvoiceData {
   paid: number;
   balance: number;
   status: string;
-  paymentInstructions?: string;
+  paymentInstructions?: string | undefined;
   footer: string;
 }
 
